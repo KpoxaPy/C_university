@@ -1,50 +1,28 @@
 #include <stdio.h>
 #include "words.h"
-#include "echoes.h"
 #include "parser.h"
+#include "echoes.h"
 
-int main (int argc, char ** argv)
+int main (int argc, char ** argv, char ** envp)
 {
   struct wordlist words = {NULL, NULL, 0};
-  int flagEOF = 0;
-  int c;
-  int returnCode;
-  char * str;
+  int parseStatus;
 
-  echoPromt(1);
-  while (!flagEOF)
+  while (1)
   {
-    c = getchar();
+    parseStatus = parse(&words);
 
-    if (c == EOF)
-      flagEOF = 1;
-
-    returnCode = parseCharToWord(c, &str);
-
-    if (str != NULL)
-      addWord(&words, str);
-
-    if (c == '\n' || c == EOF)
+    if (parseStatus == PARSE_ST_ERROR_QUOTES)
     {
-      if (returnCode > 0)
-      {
-        echoError(returnCode);
-        clearWordList(&words);
-      }
-      else if (!returnCode)
-      {
-        echoWordList(&words);
-        clearWordList(&words);
-      }
+      echoError(ERROR_QUOTES);
+      break;
     }
 
-    if (c == '\n')
-    {
-      if (returnCode == -1)
-        echoPromt(2);
-      else
-        echoPromt(1);
-    }
+    echoWordList(&words);
+    clearWordList(&words);
+
+    if (parseStatus == PARSE_ST_EOF)
+      break;
   }
 
   return 0;

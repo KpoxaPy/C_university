@@ -1,78 +1,182 @@
-#include <stdlib.h>
 #include <stdio.h>
-#include "parser.h"
+#include <stdlib.h>
 #include "buffer.h"
+#include "parser.h"
+#include "echoes.h"
 
-int parseCharToWord(char c, char ** str)
+struct flags {
+  int EOI,
+      EOW,
+      EOS,
+      Word,
+      DQuote,
+      Quote,
+      BQuote,
+      Escape;
+};
+
+void initFlags(struct flags *);
+int parseCharToWord(struct flags *, int, char **);
+int handleChar(struct bufferlist *, struct flags *, int);
+int parseWord(struct flags *, char **);
+void echoFlags(struct flags *);
+
+
+void initFlags(struct flags * fp)
 {
-  static struct bufferlist buffer = {NULL, NULL, 0};
-  static int isWord = 0;
-  static int isInQuote = 0;
-  static int isEscape = 0;
-  int subjectCode = 0;
-  *str = NULL;
-  int doHandle = 1;
+  fp->EOI = 0;
+  fp->EOW = 0;
+  fp->EOS = 0;
+  fp->Word = 0;
+  fp->DQuote = 0;
+  fp->Quote = 0;
+  fp->BQuote = 0;
+  fp->Escape = 0;
+}
 
-  // printf("{'%c' w%d q%d s%d-> ", c, isWord, isInQuote, isEscape);
+int parse(struct wordlist * words)
+{
+  int status;
+  static struct flags f = {0, 0, 0, 0, 0, 0, 0, 0};
+  char * str;
 
-  if (isEscape)
+  clearWordList(words);
+  initFlags(&f);
+
+  echoPromt(PROMT_DEFAULT);
+  while (((status = parseWord(&f, &str)) <= 0) && str != NULL)
   {
-    doHandle = 0;
-    isEscape = 0;
-    if (c == EOF)
-      doHandle = 1;
-    else if (c == '\n')
-      subjectCode = -1;
-    else
-    {
-      addChar(&buffer, c); 
-      isWord = 1;
-    }
+    addWord(words, str);
+
+    if (status == PARSE_ST_EOS ||
+        status == PARSE_ST_EOF)
+      break;
   }
 
-  if (doHandle)
-    switch (c)
-    {
-      case EOF:
-        if (isInQuote)
-        {
-          subjectCode = 1;
-          break;
-        }
-      case '\n':
-        if (isWord && !isInQuote)
-        {
-          isWord = 0;
-          isInQuote = 0;
-          *str = flushBuffer(&buffer);
-        }
-        if (isInQuote)
-          subjectCode = -1;
-        break;
-      case '\\':
-        isEscape = 1;
-        break;
-      case '\t':
-      case ' ':
-        if (!isInQuote && isWord)
-        {
-          *str = flushBuffer(&buffer);
-          isWord = 0;
-        }
-        else if (isInQuote)
-          addChar(&buffer, c);
-        break;
-      case '"':
-        isInQuote = !isInQuote;
-        if (isInQuote)
-          isWord = 1;
-        break;
-      default:
-        isWord = 1;
-        addChar(&buffer, c);
-        break;
-    }
-  // printf("w%d q%d s%d}", isWord, isInQuote, isEscape);
+  return status;
+}
 
-  return subjectCode;
+
+
+int parseWord(struct flags * fp, char ** str)
+{
+  char * tmpStr = NULL;
+  int status = 0;
+
+  fp->EOW = 0;
+
+  while (!fp->EOW && !fp->EOS && !fp->EOI)
+  {
+    status = parseCharToWord(fp, getchar(), &tmpStr);
+
+    if (status == PARSE_ST_MORE)
+      echoPromt(PROMT_EXTENDED);
+  }
+
+  *str = tmpStr;
+
+  return status;
+}
+
+
+
+int parseCharToWord(struct flags * fp, int c, char ** str)
+{
+  static struct bufferlist buffer = {NULL, NULL, 0};
+  int status;
+
+  status = handleChar(&buffer, fp, c);
+
+  if (fp->EOW)
+    *str = flushBuffer(&buffer);
+  else
+    *str =  NULL;
+
+  return status;
+}
+
+/*
+ * Handles chars to buffer, modiffies flags and returns status:
+ *  PARSE_ST_MORE - need more input
+ *  PARSE_ST_EOS - end of string (getted \n and not expected more input)
+ *  PARSE_ST_EOF - end of file (getted EOF and not expected more input)
+ *  PARSE_ST_ERROR_QUOTES - error: unbalanced quotes
+ *  PARSE_ST_OK - all right
+ */
+int handleChar(struct bufferlist * buffer, struct flags * fp, int c)
+{
+  int status = 0;
+
+  switch (c)
+  {
+    case EOF:
+      fp->EOI = 1;
+      /*fp->EOW = 1;*/
+      fp->EOS = 1;
+      status = PARSE_ST_EOF;
+      if (fp->Quote)
+      {
+        status = PARSE_ST_ERROR_QUOTES;
+        break;
+      }
+
+    case '\n':
+      if (fp->Word && !fp->Quote)
+      {
+        fp->Word = 0;
+        fp->EOW = 1;
+        fp->EOS = 1;
+      }
+      if (fp->Quote)
+        status = PARSE_ST_MORE;
+      break;
+
+    case ' ':
+    case '\t':
+      if (!fp->Quote && fp->Word)
+      {
+        fp->Word = 0;
+        fp->EOW = 1;
+      }
+      else if (fp->Quote)
+        addChar(buffer, c);
+      break;
+
+    case '"':
+      fp->Quote = !fp->Quote;
+      if (fp->Quote)
+        fp->Word = 1;
+      break;
+
+    default:
+      fp->Word = 1;
+      addChar(buffer, c);
+      break;
+  }
+
+  if (!status && fp->EOS)
+    status = PARSE_ST_EOS;
+
+  return status;
+}
+
+
+void echoFlags(struct flags * fp)
+{
+  if (fp->EOI)
+    printf("EOI ");
+  if (fp->EOW)
+    printf("EOW ");
+  if (fp->EOS)
+    printf("EOS ");
+  if (fp->Word)
+    printf("Word ");
+  if (fp->DQuote)
+    printf("DQuote ");
+  if (fp->Quote)
+    printf("Quote ");
+  if (fp->BQuote)
+    printf("BQuote ");
+  if (fp->Escape)
+    printf("Escape ");
 }

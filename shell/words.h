@@ -1,3 +1,6 @@
+#ifndef _WORDS_H_
+#define _WORDS_H_
+
 struct word {
   char * str;
   struct word * next;
@@ -13,3 +16,5 @@ struct wordlist {
 void clearWordList(struct wordlist *);
 void echoWordList(struct wordlist *);
 void addWord(struct wordlist *, char *);
+
+#endif

@@ -8,10 +8,10 @@ void echoPromt(int num)
 {
   switch (num)
   {
-    case 1:
+    case PROMT_DEFAULT:
       printf(promtFormat);
       break;
-    case 2:
+    case PROMT_EXTENDED:
       printf(promtFormatExt);
       break;
   }
@@ -21,7 +21,7 @@ void echoError(int errno)
 {
   switch (errno)
   {
-    case 1:
+    case ERROR_QUOTES:
       printf("Error: unbalansed quotes!\n");
       break;
   }
