@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "words.h"
 
 void clearWordList(struct wordlist * words)
@@ -24,6 +25,7 @@ void addWord(struct wordlist * words, char * str)
 
   tmp = (struct word *)malloc(sizeof(struct word));
   tmp->str = str;
+  tmp->len = strlen(str);
 
   if (words->first == NULL)
   {

@@ -3,6 +3,7 @@
 
 struct word {
   char * str;
+  int len;
   struct word * next;
 };
 
