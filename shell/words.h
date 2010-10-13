@@ -2,15 +2,15 @@
 #define _WORDS_H_
 
 struct word {
-  char * str;
-  int len;
-  struct word * next;
+	char * str;
+	int len;
+	struct word * next;
 };
 
 struct wordlist {
-  struct word * first; 
-  struct word * last;
-  unsigned count;
+	struct word * first; 
+	struct word * last;
+	unsigned count;
 };
 
 

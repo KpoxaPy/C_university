@@ -1,4 +1,4 @@
-#include <string.h>
+#include <stdlib.h>
 #include "words.h"
 #include "parser.h"
 #include "echoes.h"
@@ -6,34 +6,41 @@
 
 int main (int argc, char ** argv, char ** envp)
 {
-  struct wordlist words = {NULL, NULL, 0};
-  int parseStatus;
-  struct command * command;
+	struct wordlist words = {NULL, NULL, 0};
+	int parseStatus, internalStatus;
+	struct command * command;
 
-  while (1)
-  {
-    parseStatus = parse(&words);
+	while (1)
+	{
+		parseStatus = parse(&words);
 
-    if (parseStatus == PARSE_ST_ERROR_QUOTES)
-    {
-      echoError(ERROR_QUOTES);
-      break;
-    }
+		if (parseStatus == PARSE_ST_ERROR_QUOTES)
+		{
+			echoError(ERROR_QUOTES);
+			break;
+		}
 
-    if (words.first != NULL && strcmp(words.first->str, "exit") == 0)
-      break;
+		internalStatus = checkInternalCommands(&words);
 
-    command = genCommand(&words);
-    runFG(command);
-    delCommand(&command);
+		if (internalStatus == INTERNAL_COMMAND_BREAK)
+			break;
+		else if (internalStatus == INTERNAL_COMMAND_OK)
+		{
+			command = genCommand(&words);
+			runFG(command);
+			delCommand(&command);
+		}
+		/* else if internalStatus == INTERNAL_COMMAND_CONTINUE */
 
-    clearWordList(&words);
+		/*echoWordList(&words);*/
 
-    if (parseStatus == PARSE_ST_EOF)
-      break;
-  }
+		clearWordList(&words);
 
-  clearWordList(&words);
+		if (parseStatus == PARSE_ST_EOF)
+			break;
+	}
 
-  return 0;
+	clearWordList(&words);
+
+	return 0;
 }
