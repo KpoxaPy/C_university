@@ -1,7 +1,3 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <errno.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #include "run.h"
@@ -24,13 +20,19 @@ int runFG(struct command * com)
 	return pid_status;
 }
 
-int checkInternalCommands(struct wordlist * words)
+int checkInternalCommands(struct programStatus * pstatus,
+		struct wordlist * words)
 {
 	int status = INTERNAL_COMMAND_OK;
 
 	if (words->first != NULL)
 	{
-		if (strcmp(words->first->str, "exit") == 0)
+		if (pstatus->justEcho)
+		{
+			echoWordList(words);
+			status = INTERNAL_COMMAND_CONTINUE;
+		}
+		else if (strcmp(words->first->str, "exit") == 0)
 			status = INTERNAL_COMMAND_BREAK;
 		else if (strcmp(words->first->str, "cd") == 0)
 		{
