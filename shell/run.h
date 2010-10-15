@@ -3,6 +3,7 @@
 
 #include "main.h"
 #include "words.h"
+#include "internals.h"
 
 #define INTERNAL_COMMAND_OK 0
 #define INTERNAL_COMMAND_BREAK 1

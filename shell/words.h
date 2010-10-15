@@ -1,6 +1,8 @@
 #ifndef _WORDS_H_
 #define _WORDS_H_
 
+#include "main.h"
+
 struct word {
 	char * str;
 	int len;

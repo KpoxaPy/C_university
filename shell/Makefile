@@ -1,4 +1,4 @@
-SRCMODULES = buffer.c words.c echoes.c parser.c run.c
+SRCMODULES = buffer.c words.c echoes.c parser.c run.c internals.c
 OBJMODULES = $(SRCMODULES:.c=.o) 
 CC = gcc
 CFLAGS = -g -Wall 
@@ -14,7 +14,7 @@ ifneq (clean, $(MAKECMDGOLAS))
   -include deps.mk
 endif
 
-deps.mk: $(SRCMODULES)
+deps.mk: main.c $(SRCMODULES)
 	$(CC) -MM $^ > $@
 
 run: shell

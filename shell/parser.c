@@ -1,5 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
 #include "buffer.h"
 #include "parser.h"
 #include "echoes.h"

@@ -2,6 +2,7 @@
 #define _PARSER_H_
 
 #include "words.h"
+#include "main.h"
 
 #define PARSE_ST_ERROR_QUOTES 1
 #define PARSE_ST_OK 0

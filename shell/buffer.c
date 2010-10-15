@@ -1,4 +1,3 @@
-#include <stdlib.h>
 #include "buffer.h"
 
 void addChar(struct bufferlist * buffer, char c)

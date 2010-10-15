@@ -28,24 +28,11 @@ int checkInternalCommands(struct programStatus * pstatus,
 	if (words->first != NULL)
 	{
 		if (pstatus->justEcho)
-		{
-			echoWordList(words);
-			status = INTERNAL_COMMAND_CONTINUE;
-		}
+			status = runEcho(pstatus, words);
 		else if (strcmp(words->first->str, "exit") == 0)
-			status = INTERNAL_COMMAND_BREAK;
+			status = runExit(pstatus, words);
 		else if (strcmp(words->first->str, "cd") == 0)
-		{
-			status = INTERNAL_COMMAND_CONTINUE;
-
-			if (words->count == 2)
-			{
-				if (chdir(words->first->next->str))
-					perror(strerror(errno));
-			}
-			else
-				printf("Too many args!\n");
-		}
+			status = runCD(pstatus, words);
 	}
 
 	return status;

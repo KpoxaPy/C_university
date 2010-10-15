@@ -6,6 +6,8 @@
 
 #define ERROR_QUOTES 1
 
+#include "main.h"
+
 void echoPromt(int);
 void echoError(int);
 

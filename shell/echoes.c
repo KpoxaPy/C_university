@@ -1,5 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
 #include <unistd.h>
 #include "echoes.h"
 
@@ -22,9 +20,9 @@ void echoPromt(int num)
 	}
 }
 
-void echoError(int errno)
+void echoError(int errnum)
 {
-	switch (errno)
+	switch (errnum)
 	{
 		case ERROR_QUOTES:
 			printf("Error: unbalansed quotes!\n");
