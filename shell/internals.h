@@ -6,7 +6,7 @@
 #include "words.h"
 
 int runEcho(struct programStatus * , struct wordlist * );
-int runExit(struct programStatus * , struct wordlist * );
-int runCD(struct programStatus * , struct wordlist * );
+int runExit(struct programStatus * );
+int runCD(struct programStatus * , struct command * );
 
 #endif

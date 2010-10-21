@@ -27,5 +27,8 @@ void echoError(int errnum)
 		case ERROR_QUOTES:
 			printf("Error: unbalansed quotes!\n");
 			break;
+		case ERROR_AMP:
+			printf("Error: unexpected symbols after &.\n");
+			break;
 	}
 }

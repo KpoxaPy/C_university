@@ -7,17 +7,19 @@ struct flags {
 			EOW,
 			EOS,
 			Word,
-			DQuote,
+			Amp,
 			Quote,
+			DQuote,
 			BQuote,
 			Escape;
 };
 
 void initFlags(struct flags *);
+void echoFlags(struct flags *);
+
 int parseCharToWord(struct flags *, int, char **);
 int handleChar(struct bufferlist *, struct flags *, int);
 int parseWord(struct flags *, char **);
-void echoFlags(struct flags *);
 /*int getNextChar(struct flags *);*/
 
 void initFlags(struct flags * fp)
@@ -26,6 +28,7 @@ void initFlags(struct flags * fp)
 	fp->EOW = 0;
 	fp->EOS = 0;
 	fp->Word = 0;
+	fp->Amp = 0;
 	fp->DQuote = 0;
 	fp->Quote = 0;
 	fp->BQuote = 0;
@@ -70,21 +73,26 @@ void initFlags(struct flags * fp)
 int parse(struct wordlist * words)
 {
 	int status;
-	static struct flags f = {0, 0, 0, 0, 0, 0, 0, 0};
+	static struct flags f = {0, 0, 0, 0, 0, 0, 0, 0, 0};
 	char * str;
 
 	clearWordList(words);
 	initFlags(&f);
 
 	echoPromt(PROMT_DEFAULT);
-	while (((status = parseWord(&f, &str)) <= 0) && str != NULL)
+	while ((status = parseWord(&f, &str)) <= 0 && str != NULL)
 	{
-		addWord(words, str);
+		if (str != NULL)
+			addWord(words, str);
+
+		/*printf("Word \"%s\": status: %d\tamp? %d\n", str, status, f.Amp);*/
 
 		if (status == PARSE_ST_EOS ||
 				status == PARSE_ST_EOF)
 			break;
 	}
+
+	/*printf("SUM: status: %d\tamp? %d\n", status, f.Amp);*/
 
 	return status;
 }
@@ -140,11 +148,16 @@ int handleChar(struct bufferlist * buffer, struct flags * fp, int c)
 {
 	int status = 0;
 
+	/*
+	 *printf("Before: char: %c \n", c);
+	 *echoFlags(fp);
+	 *printf("\n");
+	 */
+
 	switch (c)
 	{
 		case EOF:
 			fp->EOI = 1;
-			/*fp->EOW = 1;*/
 			fp->EOS = 1;
 			status = PARSE_ST_EOF;
 			if (fp->Quote)
@@ -160,8 +173,28 @@ int handleChar(struct bufferlist * buffer, struct flags * fp, int c)
 				fp->EOW = 1;
 				fp->EOS = 1;
 			}
+			else if (!fp->Word)
+				fp->EOS = 1;
 			if (fp->Quote)
 				status = PARSE_ST_MORE;
+			break;
+
+		case '&':
+			if (!fp->Quote)
+			{
+				if (fp->Word)
+				{
+					fp->Word = 0;
+					fp->EOW = 1;
+					ungetc(c, stdin);
+				}
+				else
+				{
+					fp->EOW = 1;
+					fp->Amp = 1;
+					addChar(buffer, c);
+				}
+			}
 			break;
 
 		case ' ':
@@ -190,6 +223,12 @@ int handleChar(struct bufferlist * buffer, struct flags * fp, int c)
 	if (!status && fp->EOS)
 		status = PARSE_ST_EOS;
 
+	/*
+	 *printf("After: stat: %d \n", status);
+	 *echoFlags(fp);
+	 *printf("\n\n");
+	 */
+
 	return status;
 }
 
@@ -204,6 +243,8 @@ void echoFlags(struct flags * fp)
 		printf("EOS ");
 	if (fp->Word)
 		printf("Word ");
+	if (fp->Amp)
+		printf("Amp ");
 	if (fp->DQuote)
 		printf("DQuote ");
 	if (fp->Quote)

@@ -3,7 +3,6 @@
 
 #include "main.h"
 #include "words.h"
-#include "internals.h"
 
 #define INTERNAL_COMMAND_OK 0
 #define INTERNAL_COMMAND_BREAK 1
@@ -12,12 +11,14 @@
 struct command {
 	char * file;
 	int bg;
+	int argc;
 	char ** argv;
+	struct wordlist * words;
 };
 
-int runFG(struct command * );
+int run(struct command * );
 struct command * genCommand(struct wordlist *);
 void delCommand(struct command ** );
-int checkInternalCommands(struct programStatus *, struct wordlist *);
+int checkInternalCommands(struct programStatus *, struct command *);
 
 #endif

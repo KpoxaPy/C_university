@@ -1,16 +1,28 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include "run.h"
+#include "internals.h"
+
+int runFG(struct command *);
+int runBG(struct command *);
+
+int run(struct command * com)
+{
+	if (!com->bg)
+		return runFG(com);
+	else
+		return runBG(com);
+}
 
 int runFG(struct command * com)
 {
-	int pid;
+	pid_t pid;
 	int pid_status;
 
 	if ((pid = fork()) == 0)
 	{
 		execvp(com->file, com->argv);
-		perror(strerror(errno));
+		perror(com->file);
 		exit(1);
 	}
 
@@ -20,19 +32,35 @@ int runFG(struct command * com)
 	return pid_status;
 }
 
+int runBG(struct command * com)
+{
+	pid_t pid;
+
+	if ((pid = fork()) == 0)
+	{
+		execvp(com->file, com->argv);
+		perror(com->file);
+		exit(1);
+	}
+
+	// Adding bg proccess into bg-manager
+
+	return 0;
+}
+
 int checkInternalCommands(struct programStatus * pstatus,
-		struct wordlist * words)
+		struct command * com)
 {
 	int status = INTERNAL_COMMAND_OK;
 
-	if (words->first != NULL)
+	if (com->file != NULL)
 	{
 		if (pstatus->justEcho)
-			status = runEcho(pstatus, words);
-		else if (strcmp(words->first->str, "exit") == 0)
-			status = runExit(pstatus, words);
-		else if (strcmp(words->first->str, "cd") == 0)
-			status = runCD(pstatus, words);
+			status = runEcho(pstatus, com->words);
+		else if (strcmp(com->file, "exit") == 0)
+			status = runExit(pstatus);
+		else if (strcmp(com->file, "cd") == 0)
+			status = runCD(pstatus, com);
 	}
 
 	return status;
@@ -45,22 +73,45 @@ struct command * genCommand(struct wordlist * words)
 	if (words->count)
 	{
 		int i = 0;
+		int bg;
 		struct word * wtmp = words->first;
 		char * tmpStr;
 
+		// Analyzing for background execution
+		wtmp = words->first;
+		bg = 0;
+		while (wtmp != NULL)
+		{
+			if (!bg && strcmp(wtmp->str, "&") == 0)
+				bg = 1;
+			else if (bg)
+				return NULL;
+			
+			wtmp = wtmp->next;
+		}
+
+		wtmp = words->first;
 		cmd = (struct command *)malloc(sizeof(struct command));
 		cmd->argv = (char **)malloc(sizeof(char *)*(words->count + 1));
 
 		while (wtmp != NULL)
 		{
-			tmpStr = (char *)malloc(sizeof(char)*(wtmp->len));
-			cmd->argv[i++] = strcpy(tmpStr, wtmp->str);
+			if (strcmp(wtmp->str, "&") != 0)
+			{
+				tmpStr = (char *)malloc(sizeof(char)*(wtmp->len));
+				cmd->argv[i++] = strcpy(tmpStr, wtmp->str);
+			}
+			else
+				break;
+
 			wtmp = wtmp->next;
 		}
 
+		cmd->argc = i;
 		cmd->argv[i] = NULL;
 		cmd->file = cmd->argv[0];
-		cmd->bg = 0;
+		cmd->bg = bg;
+		cmd->words = words;
 	}
 	else
 		return NULL;
@@ -70,7 +121,7 @@ struct command * genCommand(struct wordlist * words)
 
 void delCommand(struct command ** com)
 {
-	if (com != NULL);
+	if (com != NULL && *com != NULL)
 	{
 		char ** pStr = (*com)->argv;
 

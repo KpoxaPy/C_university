@@ -28,23 +28,28 @@ int main (int argc, char ** argv, char ** envp)
 			echoError(ERROR_QUOTES);
 			break;
 		}
+		/*
+		 *else if (status.parse == PARSE_ST_ERROR_AMP)
+		 *{
+		 *  echoError(ERROR_AMP);
+		 *  clearWordList(&words);
+		 *  continue;
+		 *}
+		 */
+		command = genCommand(&words);
 
-		status.internal = checkInternalCommands(&status, &words);
-
-		if (status.internal == INTERNAL_COMMAND_BREAK)
-			break;
-		else if (status.internal == INTERNAL_COMMAND_OK)
+		if (command)
 		{
-			command = genCommand(&words);
-			if (command)
-			{
-				runFG(command);
-				delCommand(&command);
-			}
+			status.internal = checkInternalCommands(&status, command);
+
+			if (status.internal == INTERNAL_COMMAND_BREAK)
+				break;
+			else if (status.internal == INTERNAL_COMMAND_OK)
+				run(command);
+			/* else if internalStatus == INTERNAL_COMMAND_CONTINUE */
 		}
-		/* else if internalStatus == INTERNAL_COMMAND_CONTINUE */
 
-
+		delCommand(&command);
 		clearWordList(&words);
 
 		if (status.parse == PARSE_ST_EOF)
