@@ -13,6 +13,8 @@ struct programStatus {
 	int argc;
 	char ** argv;
 	char ** envp;
+	pid_t pid;
+	pid_t pgid;
 };
 
 #endif

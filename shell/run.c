@@ -1,49 +1,73 @@
-#include <sys/wait.h>
+#include <fcntl.h>
 #include <unistd.h>
+#include <signal.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include "run.h"
-#include "internals.h"
+#include "internals.h" 
 
-int runFG(struct command *);
-int runBG(struct command *);
+int runFG(struct programStatus *, struct command *);
+int runBG(struct programStatus *, struct command *);
 
-int run(struct command * com)
+int run(struct programStatus * pstatus, struct command * com)
 {
 	if (!com->bg)
-		return runFG(com);
+		return runFG(pstatus, com);
 	else
-		return runBG(com);
+		return runBG(pstatus, com);
 }
 
-int runFG(struct command * com)
+int runFG(struct programStatus * pstatus, struct command * com)
 {
 	pid_t pid;
-	int pid_status;
+	int status;
 
 	if ((pid = fork()) == 0)
 	{
+		if (setpgid(0, 0))
+		{
+			perror("Setpgid(0, 0) makes bad :(\n");
+			exit(1);
+		}
+
 		execvp(com->file, com->argv);
 		perror(com->file);
 		exit(1);
 	}
 
-	while (wait(&pid_status) != -1)
-		;
+	signal(SIGTTOU, SIG_IGN);
+	tcsetpgrp(0, pid);
 
-	return pid_status;
+	status = waitFG(pid);
+
+	tcsetpgrp(0, pstatus->pgid);
+	signal(SIGTTOU, SIG_DFL);
+
+	return status;
 }
 
-int runBG(struct command * com)
+int runBG(struct programStatus * pstatus, struct command * com)
 {
 	pid_t pid;
+	jid_t jid;
 
 	if ((pid = fork()) == 0)
 	{
+		if (setpgid(0, 0))
+		{
+			perror("Setpgid(0, 0) makes bad :(\n");
+			exit(1);
+		}
+
 		execvp(com->file, com->argv);
 		perror(com->file);
 		exit(1);
 	}
 
-	// Adding bg proccess into bg-manager
+	// Adding proccess into manager
+	jid = addJob(pid, com);	
+	setLastJid(jid);	
 
 	return 0;
 }
@@ -61,76 +85,13 @@ int checkInternalCommands(struct programStatus * pstatus,
 			status = runExit(pstatus);
 		else if (strcmp(com->file, "cd") == 0)
 			status = runCD(pstatus, com);
+		else if (strcmp(com->file, "jobs") == 0)
+			status = runJobs(pstatus, com);
+		else if (strcmp(com->file, "bg") == 0)
+			status = runJobsBG(pstatus, com);
+		else if (strcmp(com->file, "fg") == 0)
+			status = runJobsFG(pstatus, com);
 	}
 
 	return status;
-}
-
-struct command * genCommand(struct wordlist * words)
-{
-	struct command * cmd;
-
-	if (words->count)
-	{
-		int i = 0;
-		int bg;
-		struct word * wtmp = words->first;
-		char * tmpStr;
-
-		// Analyzing for background execution
-		wtmp = words->first;
-		bg = 0;
-		while (wtmp != NULL)
-		{
-			if (!bg && strcmp(wtmp->str, "&") == 0)
-				bg = 1;
-			else if (bg)
-				return NULL;
-			
-			wtmp = wtmp->next;
-		}
-
-		wtmp = words->first;
-		cmd = (struct command *)malloc(sizeof(struct command));
-		cmd->argv = (char **)malloc(sizeof(char *)*(words->count + 1));
-
-		while (wtmp != NULL)
-		{
-			if (strcmp(wtmp->str, "&") != 0)
-			{
-				tmpStr = (char *)malloc(sizeof(char)*(wtmp->len));
-				cmd->argv[i++] = strcpy(tmpStr, wtmp->str);
-			}
-			else
-				break;
-
-			wtmp = wtmp->next;
-		}
-
-		cmd->argc = i;
-		cmd->argv[i] = NULL;
-		cmd->file = cmd->argv[0];
-		cmd->bg = bg;
-		cmd->words = words;
-	}
-	else
-		return NULL;
-
-	return cmd;
-}
-
-void delCommand(struct command ** com)
-{
-	if (com != NULL && *com != NULL)
-	{
-		char ** pStr = (*com)->argv;
-
-		while (*pStr != NULL)
-			free(*pStr++);
-
-		free((*com)->argv);
-		free(*com);
-
-		*com = NULL;
-	}
 }

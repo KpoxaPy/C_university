@@ -1,4 +1,4 @@
-SRCMODULES = buffer.c words.c echoes.c parser.c run.c internals.c
+SRCMODULES = buffer.c words.c echoes.c parser.c jobmanager.c run.c internals.c command.c
 OBJMODULES = $(SRCMODULES:.c=.o) 
 CC = gcc
 CFLAGS = -g -Wall 

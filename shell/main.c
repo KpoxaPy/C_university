@@ -1,3 +1,4 @@
+#include <unistd.h>
 #include "main.h"
 #include "words.h"
 #include "parser.h"
@@ -13,6 +14,8 @@ int main (int argc, char ** argv, char ** envp)
 	status.argc = argc;
 	status.argv = argv;
 	status.envp = envp;
+	status.pgid = getpgrp();
+	status.pid = getpid();
 
 	if (argc == 2 && strcmp(argv[1], "-e") == 0)
 		status.justEcho = 1;
@@ -21,6 +24,8 @@ int main (int argc, char ** argv, char ** envp)
 
 	while (1)
 	{
+		checkZombies();
+
 		status.parse = parse(&words);
 
 		if (status.parse == PARSE_ST_ERROR_QUOTES)
@@ -45,11 +50,13 @@ int main (int argc, char ** argv, char ** envp)
 			if (status.internal == INTERNAL_COMMAND_BREAK)
 				break;
 			else if (status.internal == INTERNAL_COMMAND_OK)
-				run(command);
+				run(&status, command);
 			/* else if internalStatus == INTERNAL_COMMAND_CONTINUE */
+
+			if (!command->bg)
+				delCommand(&command);
 		}
 
-		delCommand(&command);
 		clearWordList(&words);
 
 		if (status.parse == PARSE_ST_EOF)
