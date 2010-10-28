@@ -2,8 +2,22 @@
 #include "parser.h"
 #include "echoes.h"
 
+struct parseStatus {
+	int tmp;
+};
+
+void initParseStatus(struct parseStatus *);
+
 int parse(struct cmdElem ** cmdTree)
 {
+	struct parseStatus status;
+	struct wordlist words;
+
+	initParseStatus(&status);
+	initWordlist(&words);
+
+	echoPromt(PROMT_DEFAULT);
+
 	return 0;
 }
 
@@ -16,4 +30,9 @@ int processParsingErrors(int status)
 	}
 
 	return 0;
+}
+
+void initParseStatus(struct parseStatus * status)
+{
+	status->tmp = 0;
 }
