@@ -1,7 +1,7 @@
 SRCMODULES = buffer.c words.c echoes.c parser.c jobmanager.c run.c internals.c command.c
-OBJMODULES = $(SRCMODULES:.c=.o) 
+OBJMODULES = $(SRCMODULES:.c=.o)
 CC = gcc
-CFLAGS = -g -Wall 
+CFLAGS = -g -Wall
 
 %.o: %.c %.h
 	$(CC) $(CFLAGS) -c $< -o $@
