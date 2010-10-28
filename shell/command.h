@@ -26,11 +26,12 @@ struct cmdElem {
 struct cmdElemAction {
 	int cmdAction;
 	struct cmdElem * second;
-	struct cmdElem * fir
+	struct cmdElem * first;
+};
 
 
 /* Command actions */
-stuct command * genCommand(struct wordlist *);
+struct command * genCommand(struct wordlist *);
 void delCommand(struct command ** );
 void echoCommand(struct command *);
 
@@ -40,3 +41,5 @@ void removeCmdElem(struct cmdElem *);
 
 struct cmdElemAction * createCmdElemAction(int,	struct cmdElem *, struct cmdElem *);
 void removeCmdElemAction(struct cmdElemAction *);
+
+#endif

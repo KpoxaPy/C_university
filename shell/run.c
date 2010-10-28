@@ -7,8 +7,28 @@
 #include "run.h"
 #include "internals.h" 
 
+int run(struct programStatus *, struct command * );
+int checkInternalCommands(struct programStatus *, struct command *);
+
 int runFG(struct programStatus *, struct command *);
 int runBG(struct programStatus *, struct command *);
+
+int processCommand(struct cmdElem * cmdTree)
+{
+/*
+ *  status.internal = checkInternalCommands(&status, command);
+ *
+ *  if (status.internal == INTERNAL_COMMAND_BREAK)
+ *    break;
+ *  else if (status.internal == INTERNAL_COMMAND_OK)
+ *    run(&status, command);
+ *  [> else if internalStatus == INTERNAL_COMMAND_CONTINUE <]
+ *
+ *  if (!command->bg)
+ *    delCommand(&command);
+ */
+	return INTERNAL_COMMAND_BREAK;
+}
 
 int run(struct programStatus * pstatus, struct command * com)
 {

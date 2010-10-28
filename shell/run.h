@@ -9,7 +9,6 @@
 #define INTERNAL_COMMAND_BREAK 1
 #define INTERNAL_COMMAND_CONTINUE 2
 
-int run(struct programStatus *, struct command * );
-int checkInternalCommands(struct programStatus *, struct command *);
+int processCommand(struct programStatus *, struct cmdElem *);
 
 #endif

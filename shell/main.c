@@ -1,14 +1,12 @@
 #include <unistd.h>
 #include "main.h"
-#include "words.h"
+#include "command.h"
 #include "parser.h"
-#include "echoes.h"
 #include "run.h"
 
 int main (int argc, char ** argv, char ** envp)
 {
-	struct wordlist words = {NULL, NULL, 0};
-	struct command * command;
+	struct cmdElem * cmdTree;
 	struct programStatus status;
 
 	status.argc = argc;
@@ -26,44 +24,17 @@ int main (int argc, char ** argv, char ** envp)
 	{
 		checkZombies();
 
-		status.parse = parse(&words);
+		status.parse = parse(&cmdTree);
 
-		if (status.parse == PARSE_ST_ERROR_QUOTES)
-		{
-			echoError(ERROR_QUOTES);
+		if (processParsingErrors(status.parse))
 			break;
-		}
-		/*
-		 *else if (status.parse == PARSE_ST_ERROR_AMP)
-		 *{
-		 *  echoError(ERROR_AMP);
-		 *  clearWordList(&words);
-		 *  continue;
-		 *}
-		 */
-		command = genCommand(&words);
 
-		if (command)
-		{
-			status.internal = checkInternalCommands(&status, command);
-
-			if (status.internal == INTERNAL_COMMAND_BREAK)
-				break;
-			else if (status.internal == INTERNAL_COMMAND_OK)
-				run(&status, command);
-			/* else if internalStatus == INTERNAL_COMMAND_CONTINUE */
-
-			if (!command->bg)
-				delCommand(&command);
-		}
-
-		clearWordList(&words);
+		if (cmdTree)
+			processCommand(&status, cmdTree);
 
 		if (status.parse == PARSE_ST_EOF)
 			break;
 	}
-
-	clearWordList(&words);
 
 	return 0;
 }
