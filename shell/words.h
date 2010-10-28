@@ -16,6 +16,7 @@ struct wordlist {
 };
 
 
+void initWordList(struct wordlist *);
 void clearWordList(struct wordlist *);
 void echoWordList(struct wordlist *);
 void addWord(struct wordlist *, char *);

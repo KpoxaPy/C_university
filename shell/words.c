@@ -1,5 +1,12 @@
 #include "words.h"
 
+void initWordList(struct wordlist * words)
+{
+	words->first = NULL;
+	words->last = NULL;
+	words->count = 0;
+}
+
 void clearWordList(struct wordlist * words)
 {
 	struct word * tmp;
