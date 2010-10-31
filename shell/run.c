@@ -13,7 +13,7 @@ int checkInternalCommands(struct programStatus *, struct command *);
 int runFG(struct programStatus *, struct command *);
 int runBG(struct programStatus *, struct command *);
 
-int processCommand(struct cmdElem * cmdTree)
+int processCommand(struct programStatus * pstatus, struct cmdElem * cmdTree)
 {
 /*
  *  status.internal = checkInternalCommands(&status, command);

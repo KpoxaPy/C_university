@@ -14,7 +14,7 @@ int parse(struct cmdElem ** cmdTree)
 	struct wordlist words;
 
 	initParseStatus(&status);
-	initWordlist(&words);
+	initWordList(&words);
 
 	echoPromt(PROMT_DEFAULT);
 
