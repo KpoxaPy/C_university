@@ -8,6 +8,7 @@ struct parseStatus {
 
 void initParseStatus(struct parseStatus *);
 
+
 int parse(struct cmdElem ** cmdTree)
 {
 	struct parseStatus status;
