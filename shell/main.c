@@ -1,13 +1,15 @@
 #include <unistd.h>
 #include "main.h"
-#include "command.h"
-#include "parser.h"
-#include "run.h"
+/*#include "command.h"*/
+#include "parser/parser.h"
+#include "parser/lexer.h"
+/*#include "run.h"*/
 
 int main (int argc, char ** argv, char ** envp)
 {
-	struct cmdElem * cmdTree;
+	/*struct cmdElem * cmdTree;*/
 	struct programStatus status;
+	Lex * lex;
 
 	status.argc = argc;
 	status.argv = argv;
@@ -20,21 +22,42 @@ int main (int argc, char ** argv, char ** envp)
 	else
 		status.justEcho = 0;
 
-	while (1)
+
+	initLexer();
+
+	for(;;)
 	{
-		checkZombies();
-
-		status.parse = parse(&cmdTree);
-
-		if (processParsingErrors(status.parse))
+		lex = getlex();
+		echoLex(lex);
+		if (lex == NULL || lex->type == LEX_EOF)
+		{
+			if (lex->str != NULL)
+				free(lex->str);
+			free(lex);
 			break;
-
-		if (cmdTree)
-			processCommand(&status, cmdTree);
-
-		if (status.parse == PARSE_ST_EOF)
-			break;
+		}
+		if (lex->str != NULL)
+			free(lex->str);
+		free(lex);
 	}
+
+	clearLexer();
+
+	/*while (1)*/
+	/*{*/
+		/*checkZombies();*/
+
+		/*status.parse = parse(&cmdTree);*/
+
+		/*if (processParsingErrors(status.parse))*/
+			/*break;*/
+
+		/*if (cmdTree)*/
+			/*processCommand(&status, cmdTree);*/
+
+		/*if (status.parse == PARSE_ST_EOF)*/
+			/*break;*/
+	/*}*/
 
 	return 0;
 }

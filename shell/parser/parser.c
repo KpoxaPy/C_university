@@ -1,6 +1,6 @@
-#include "words.h"
+#include "../words.h"
 #include "parser.h"
-#include "echoes.h"
+#include "../echoes.h"
 
 struct parseStatus {
 	int tmp;
