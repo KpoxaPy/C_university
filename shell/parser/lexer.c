@@ -198,17 +198,20 @@ Lex * getlex()
 			}
 			else if (gcInfo.c == '\n')
 			{
+				state = LS_QUOTE;
 				echoExtendedPromt();
 				gc();
 			}
 			else if (gcInfo.c == '\\' ||
 				gcInfo.c == '"')
 			{
+				state = LS_QUOTE;
 				addChar(gcInfo.buf, gcInfo.c);
 				gc();
 			}
 			else
 			{
+				state = LS_QUOTE;
 				addChar(gcInfo.buf, '\\');
 				addChar(gcInfo.buf, gcInfo.c);
 				gc();
