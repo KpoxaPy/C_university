@@ -1,45 +1,58 @@
 #ifndef _COMMAND_H_
 #define _COMMAND_H_
 
-#include "main.h"
-#include "words.h"
+#include "parser/lexlist.h"
 
 #define CMD_ACTION_NEXT 0
 #define CMD_ACTION_BG 1
 #define CMD_ACTION_AND_CHAIN 2
 #define CMD_ACTION_OR_CHAIN 3
 
-struct command {
+#define TCMD_SIMPLE 0
+#define TCMD_PIPE 1
+#define TCMD_LIST 2
+#define TCMD_SCRIPT 3
+
+#define TREL_END 0
+#define TREL_PIPE 1
+#define TREL_AND 2
+#define TREL_OR 3
+#define TREL_SCRIPT 4
+
+typedef struct simpleCmd {
 	char * file;
-	int bg;
+
 	int argc;
 	char ** argv;
-	struct wordlist * words;
-};
 
-struct cmdElem {
-	struct cmdElem * firstChild;
-	struct cmdElemAction * next;
-	struct command * cmd;
-};
+	char * rdrInputFile,
+		* rdrOutputFile;
+	int rdrOutputAppend;
+} simpleCmd;
 
-struct cmdElemAction {
-	int cmdAction;
-	struct cmdElem * second;
-	struct cmdElem * first;
-};
+typedef struct tCmd {
+	int cmdType;
+	int modeBG;
 
+	simpleCmd * cmd;
+	struct tCmd * child;
+	struct tRel * rel;
+} tCmd;
+
+typedef struct tRel {
+	int relType;
+
+	tCmd * next;
+} tRel;
 
 /* Command actions */
-struct command * genCommand(struct wordlist *);
-void delCommand(struct command ** );
-void echoCommand(struct command *);
+simpleCmd * genCommand(lexList *);
+void delCommand(simpleCmd **);
+void echoCommand(simpleCmd *);
 
 /* Cmd tree actions */
-struct cmdElem * createCmdElem(struct command *, struct cmdElem *);
-void removeCmdElem(struct cmdElem *);
-
-struct cmdElemAction * createCmdElemAction(int,	struct cmdElem *, struct cmdElem *);
-void removeCmdElemAction(struct cmdElemAction *);
+tCmd * genTCmd(simpleCmd *);
+void genRelation(tCmd *, int, tCmd *);
+void delTCmd(tCmd **);
 
 #endif

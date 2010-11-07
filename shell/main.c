@@ -1,15 +1,16 @@
 #include <unistd.h>
 #include "main.h"
-/*#include "command.h"*/
-#include "parser/parser.h"
+#include "echoes.h"
 #include "parser/lexer.h"
-/*#include "run.h"*/
+#include "parser/lexlist.h"
+
+/*char testStr[] = "w1| w2	>> w3 && (abc ; def & noh);woe  && olo || salsa ; tekila &";*/
 
 int main (int argc, char ** argv, char ** envp)
 {
-	/*struct cmdElem * cmdTree;*/
 	struct programStatus status;
 	Lex * lex;
+	lexList * list;
 
 	status.argc = argc;
 	status.argv = argv;
@@ -23,23 +24,38 @@ int main (int argc, char ** argv, char ** envp)
 		status.justEcho = 0;
 
 
+	/*initLexerByString(testStr);*/
 	initLexer();
+	list = newLexList();
 
-	for(;;)
+	for (;;)
 	{
-		lex = getlex();
-		echoLex(lex);
-		if (lex == NULL || lex->type == LEX_EOF)
+		clearLexList(list);
+
+		echoPromt(PROMT_DEFAULT);
+
+		for (;;)
 		{
-			if (lex->str != NULL)
-				free(lex->str);
-			free(lex);
-			break;
+			lex = getlex();
+
+			if (lex != NULL)
+				addLex(list, lex);
+			else
+				break;
+
+			if (lex->type == LEX_EOF || lex->type == LEX_EOL)
+				break;
 		}
-		if (lex->str != NULL)
-			free(lex->str);
-		free(lex);
+
+		if (lex != NULL)
+			echoLexList(list);
+		else
+			printf("Inner error!\n");
+
+		if(lex == NULL || lex->type == LEX_EOF)
+			break;
 	}
+	clearLexList(list);
 
 	clearLexer();
 

@@ -27,12 +27,14 @@ typedef struct Lex {
 } Lex;
 
 extern int LexerErrorNo;
+extern char *lexTypeStr[];
 
 void initLexer();
 void initLexerByString(const char *);
 void clearLexer();
 
 Lex * getlex();
+void delLex(Lex *);
 void echoLex(Lex *);
 
 

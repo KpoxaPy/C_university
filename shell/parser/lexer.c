@@ -27,6 +27,24 @@ struct gcInfo {
 
 int LexerErrorNo = LE_NONE;
 
+char *lexTypeStr[] = {
+	"",
+	"LEX_WORD",
+	"LEX_BG",
+	"LEX_AND",
+	"LEX_OR",
+	"LEX_PIPE",
+	"LEX_REDIRECT_OUTPUT",
+	"LEX_REDIRECT_OUTPUT_APPEND",
+	"LEX_REDIRECT_INPUT",
+	"LEX_SCRIPT",
+	"LEX_LPAREN",
+	"LEX_RPAREN",
+	"LEX_EOL",
+	"LEX_EOF"};
+
+void waitChar();
+int iswaitChar();
 void gc();
 Lex * consLex(int, char *);
 void echoExtendedPromt();
@@ -35,37 +53,36 @@ void initLexer()
 {
 	gcInfo.type = GC_TYPE_STDIN;
 	gcInfo.quiet = 0;
-	gcInfo.c = -2;
 	gcInfo.srcStr = NULL;
+
+	waitChar();
 
 	if (gcInfo.buf == NULL)
 		gcInfo.buf = newBuffer();
 	else
 		clearBuffer(gcInfo.buf);
-
-	gc();
 }
 
 void initLexerByString(const char * str)
 {
 	gcInfo.type = GC_TYPE_STRING;
 	gcInfo.quiet = 1;
-	gcInfo.c = -2;
 	gcInfo.srcStr = str;
+
+	waitChar();
 
 	if (gcInfo.buf == NULL)
 		gcInfo.buf = newBuffer();
 	else
 		clearBuffer(gcInfo.buf);
-
-	gc();
 }
 
 void clearLexer()
 {
 	gcInfo.type = GC_TYPE_STDIN;
-	gcInfo.c = -2;
 	gcInfo.srcStr = NULL;
+
+	waitChar();
 
 	if (gcInfo.buf != NULL)
 	{
@@ -82,6 +99,9 @@ Lex * getlex()
 	int lexType = 0;
 	int errorType = LE_NONE;
 	LexerErrorNo = LE_NONE;
+
+	if (iswaitChar())
+		gc();
 
 	for (;;)
 	switch (state)
@@ -100,7 +120,7 @@ Lex * getlex()
 				state = LS_SPECIAL_1;
 			else if (gcInfo.c == '\n')
 			{
-				gc();
+				waitChar();
 				return consLex(LEX_EOL, NULL);
 			}
 			else if (gcInfo.c == EOF)
@@ -218,7 +238,7 @@ Lex * getlex()
 				lexType = LEX_LPAREN;
 			else if (gcInfo.c == ')')
 				lexType = LEX_RPAREN;
-			gc();
+			waitChar();
 			return consLex(lexType, NULL);
 			break;
 
@@ -247,7 +267,7 @@ Lex * getlex()
 				else if (c == '>')
 					lexType = LEX_REDIRECT_OUTPUT_APPEND;
 
-				gc();
+				waitChar();
 				return consLex(lexType, NULL);
 			}
 			else
@@ -299,6 +319,16 @@ void echoExtendedPromt()
 }
 
 
+void waitChar()
+{
+	gcInfo.c = -2;
+}
+
+int iswaitChar()
+{
+	return gcInfo.c == -2;
+}
+
 void gc()
 {
 	switch (gcInfo.type)
@@ -331,11 +361,22 @@ Lex * consLex(int type, char * str)
 	return lex;
 }
 
+void delLex(Lex * lex)
+{
+	if (lex == NULL)
+		return;
+
+	if (lex->str != NULL)
+		free(lex->str);
+
+	free(lex);
+}
+
 void echoLex(Lex * lex)
 {
 	if (lex == NULL)
 	{
-		printf("It's not lex.");
+		printf("It's not lex.\n\n");
 		return;
 	}
 
