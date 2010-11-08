@@ -1,16 +1,13 @@
 #include <unistd.h>
 #include "main.h"
 #include "echoes.h"
-#include "parser/lexer.h"
-#include "parser/lexlist.h"
+#include "parser/parser.h"
 
 /*char testStr[] = "w1| w2	>> w3 && (abc ; def & noh);woe  && olo || salsa ; tekila &";*/
 
 int main (int argc, char ** argv, char ** envp)
 {
 	struct programStatus status;
-	Lex * lex;
-	lexList * list;
 
 	status.argc = argc;
 	status.argv = argv;
@@ -23,41 +20,33 @@ int main (int argc, char ** argv, char ** envp)
 	else
 		status.justEcho = 0;
 
+	initParser();
 
-	/*initLexerByString(testStr);*/
-	initLexer();
-	list = newLexList();
-
-	for (;;)
+	for(;;)
 	{
-		clearLexList(list);
+		int pStatus;
+		tCmd * cmd;
 
 		echoPromt(PROMT_DEFAULT);
+		pStatus = parse(&cmd);
 
-		for (;;)
+		if (pStatus == PS_OK)
 		{
-			lex = getlex();
-
-			if (lex != NULL)
-				addLex(list, lex);
-			else
-				break;
-
-			if (lex->type == LEX_EOF || lex->type == LEX_EOL)
-				break;
+			echoCmdTree(cmd);
 		}
-
-		if (lex != NULL)
-			echoLexList(list);
-		else
-			printf("Inner error!\n");
-
-		if(lex == NULL || lex->type == LEX_EOF)
+		else if (pStatus == PS_ERROR)
+		{
 			break;
+		}
+		else if (pStatus == PS_EOF)
+		{
+			delTCmd(&cmd);
+			break;
+		}
 	}
-	clearLexList(list);
 
-	clearLexer();
+	clearParser();
+
 
 	/*while (1)*/
 	/*{*/

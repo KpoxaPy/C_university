@@ -25,7 +25,7 @@ struct gcInfo {
 	struct bufferlist * buf;
 } gcInfo = {GC_TYPE_STDIN, 1, -2, NULL, NULL};
 
-int LexerErrorNo = LE_NONE;
+int lexerErrorNo = LE_NONE;
 
 char *lexTypeStr[] = {
 	"",
@@ -44,9 +44,8 @@ char *lexTypeStr[] = {
 	"LEX_EOF"};
 
 void waitChar();
-int iswaitChar();
+int isWaitChar();
 void gc();
-Lex * consLex(int, char *);
 void echoExtendedPromt();
 
 void initLexer()
@@ -98,9 +97,9 @@ Lex * getlex()
 	int state = LS_START;
 	int lexType = 0;
 	int errorType = LE_NONE;
-	LexerErrorNo = LE_NONE;
+	lexerErrorNo = LE_NONE;
 
-	if (iswaitChar())
+	if (isWaitChar())
 		gc();
 
 	for (;;)
@@ -305,7 +304,7 @@ Lex * getlex()
 				printf("'%c'.", gcInfo.c);
 			printf("\n");
 
-			LexerErrorNo = errorType;
+			lexerErrorNo = errorType;
 			return NULL;
 
 		default:
@@ -327,7 +326,7 @@ void waitChar()
 	gcInfo.c = -2;
 }
 
-int iswaitChar()
+int isWaitChar()
 {
 	return gcInfo.c == -2;
 }
@@ -383,50 +382,7 @@ void echoLex(Lex * lex)
 		return;
 	}
 
-	printf("Lex type: ");
-	switch (lex->type)
-	{
-		case LEX_WORD:
-			printf("LEX_WORD");
-			break;
-		case LEX_BG:
-			printf("LEX_BG");
-			break;
-		case LEX_AND:
-			printf("LEX_AND");
-			break;
-		case LEX_OR:
-			printf("LEX_OR");
-			break;
-		case LEX_PIPE:
-			printf("LEX_PIPE");
-			break;
-		case LEX_REDIRECT_INPUT:
-			printf("LEX_REDIRECT_INPUT");
-			break;
-		case LEX_REDIRECT_OUTPUT:
-			printf("LEX_REDIRECT_OUTPUT");
-			break;
-		case LEX_REDIRECT_OUTPUT_APPEND:
-			printf("LEX_REDIRECT_OUTPUT_APPEND");
-			break;
-		case LEX_SCRIPT:
-			printf("LEX_SCRIPT");
-			break;
-		case LEX_LPAREN:
-			printf("LEX_LPAREN");
-			break;
-		case LEX_RPAREN:
-			printf("LEX_RPAREN");
-			break;
-		case LEX_EOL:
-			printf("LEX_EOL");
-			break;
-		case LEX_EOF:
-			printf("LEX_EOF");
-			break;
-	}
-	printf("\n");
+	printf("Lex type: %s\n", lexTypeStr[lex->type]);
 
 	if (lex->str != NULL)
 		printf("Lex string: \"%s\".\n\n", lex->str);

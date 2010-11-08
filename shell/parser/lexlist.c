@@ -88,6 +88,8 @@ Lex * getLex(lexList * list)
 	list->first = list->first->next;
 	free(tmp);
 
+	--list->count;
+
 	return lex;
 }
 

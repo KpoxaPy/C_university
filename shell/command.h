@@ -3,11 +3,6 @@
 
 #include "parser/lexlist.h"
 
-#define CMD_ACTION_NEXT 0
-#define CMD_ACTION_BG 1
-#define CMD_ACTION_AND_CHAIN 2
-#define CMD_ACTION_OR_CHAIN 3
-
 #define TCMD_SIMPLE 0
 #define TCMD_PIPE 1
 #define TCMD_LIST 2
@@ -22,7 +17,6 @@
 typedef struct simpleCmd {
 	char * file;
 
-	int argc;
 	char ** argv;
 
 	char * rdrInputFile,
@@ -45,14 +39,26 @@ typedef struct tRel {
 	tCmd * next;
 } tRel;
 
+/* Support functions for command */
+/* This function generates argv from list of 
+ * lexems.
+ *
+ * ATTENTION! After execution list will be
+ * free. Strings that were in list of lexems
+ * remain in memory, links on them will be
+ * in vector of arguments. 
+ */
+char ** genArgVector(lexList *);
+
 /* Command actions */
-simpleCmd * genCommand(lexList *);
+simpleCmd * newCommand();
 void delCommand(simpleCmd **);
-void echoCommand(simpleCmd *);
+/*void echoCommand(simpleCmd *);*/
 
 /* Cmd tree actions */
 tCmd * genTCmd(simpleCmd *);
 void genRelation(tCmd *, int, tCmd *);
 void delTCmd(tCmd **);
+void echoCmdTree(tCmd *);
 
 #endif
