@@ -3,6 +3,7 @@
 
 #include "parser/lexlist.h"
 
+#define TCMD_NONE -1
 #define TCMD_SIMPLE 0
 #define TCMD_PIPE 1
 #define TCMD_LIST 2
@@ -17,6 +18,7 @@
 typedef struct simpleCmd {
 	char * file;
 
+	int argc;
 	char ** argv;
 
 	char * rdrInputFile,
@@ -48,7 +50,7 @@ typedef struct tRel {
  * remain in memory, links on them will be
  * in vector of arguments. 
  */
-char ** genArgVector(lexList *);
+int genArgVector(simpleCmd *, lexList *);
 
 /* Command actions */
 simpleCmd * newCommand();
@@ -60,5 +62,6 @@ tCmd * genTCmd(simpleCmd *);
 void genRelation(tCmd *, int, tCmd *);
 void delTCmd(tCmd **);
 void echoCmdTree(tCmd *);
+char * getCmdString(tCmd *);
 
 #endif

@@ -528,7 +528,7 @@ tCmd * pC()
 			break;
 	}
 
-	smpl->argv = genArgVector(pSt.list);
+	genArgVector(smpl, pSt.list);
 	smpl->file = smpl->argv[0];
 
 	cmd = genTCmd(smpl);

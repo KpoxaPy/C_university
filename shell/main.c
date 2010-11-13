@@ -24,16 +24,19 @@ int main (int argc, char ** argv, char ** envp)
 		if (prStatus.parse == PS_OK)
 		{
 			if (prStatus.justEcho)
-				echoCmdTree(cmd);
+				/*echoCmdTree(cmd);*/
+			{
+				char * str = getCmdString(cmd);
+				printf("%s\n", str);
+				free(str);
+			}
 			else
 				/*processCmdTree(cmd);*/
 				;
 		}
 		else if (prStatus.parse == PS_ERROR)
 		{
-			/*processParsingErrors(prStatus.parse);*/
 			echoParserError();
-			break;
 		}
 		else if (prStatus.parse == PS_EOF)
 		{

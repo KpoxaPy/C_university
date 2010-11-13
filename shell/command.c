@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "command.h"
+#include "buffer.h"
 
 int echoCmdTreeIndentLevel;
 
@@ -21,20 +22,23 @@ void echoIndent();
 void echoSimpleCmd(simpleCmd *);
 void echoCmdTreeNode(tCmd *);
 
-char ** genArgVector(lexList * list)
+int genArgVector(simpleCmd * cmd, lexList * list)
 {
 	Lex * lex;
 	char ** argv;
 	int i;
 	int lc;
 
-	if (list == NULL)
-		return NULL;
+	if (list == NULL || cmd == NULL)
+		return -1;
 
 	lc = list->count;
 
 	argv = (char **)malloc(sizeof(char *)*
 		(lc + 1));
+
+	if (argv == NULL)
+		return -1;
 
 	for (i = 0; i < lc; i++)
 	{
@@ -49,7 +53,10 @@ char ** genArgVector(lexList * list)
 
 	argv[i] = NULL;
 
-	return argv;
+	cmd->argv = argv;
+	cmd->argc = lc;
+
+	return 0;
 }
 
 simpleCmd * newCommand()
@@ -62,6 +69,7 @@ simpleCmd * newCommand()
 		return NULL;
 
 	cmd->file = NULL;
+	cmd->argc = 0;
 	cmd->argv = NULL;
 	cmd->rdrInputFile = NULL;
 	cmd->rdrOutputFile = NULL;
@@ -257,4 +265,122 @@ void echoCmdTreeNode(tCmd * node)
 	echoIndent(); printf("|\n");
 
 	echoCmdTreeNode(node->rel->next);
+}
+
+/*
+ * Getting command string from tree
+ */
+
+void putNodeStr(tCmd *, int, struct bufferlist *);
+void putRelStr(tRel *, int, struct bufferlist *);
+void putCmdStr(simpleCmd *, struct bufferlist *);
+
+char * getCmdString(tCmd * node)
+{
+	struct bufferlist * buf = newBuffer();
+	char * str;
+
+	if (buf == NULL || node == NULL)
+		return NULL;
+
+	putNodeStr(node, TCMD_NONE, buf);
+	str = flushBuffer(buf);
+	free(buf);
+
+	return str;
+}
+
+void putNodeStr(tCmd * node, int type,
+	struct bufferlist * buf)
+{
+	if (node == NULL)
+		return;
+
+	switch (type)
+	{
+		case TCMD_NONE:
+		case TCMD_PIPE:
+		case TCMD_SCRIPT:
+			if (node->cmdType == TCMD_SIMPLE)
+				putCmdStr(node->cmd, buf);
+			else
+				putNodeStr(node->child, node->cmdType, buf);
+
+			putRelStr(node->rel, type, buf);
+			break;
+
+		case TCMD_LIST:
+			if (node->cmdType == TCMD_SIMPLE)
+				putCmdStr(node->cmd, buf);
+			else if (node->cmdType == TCMD_PIPE)
+				putNodeStr(node->child, node->cmdType, buf);
+			else if (node->cmdType == TCMD_LIST ||
+				node->cmdType == TCMD_SCRIPT)
+			{
+				addChar(buf, '(');
+				putNodeStr(node->child, node->cmdType, buf);
+				addChar(buf, ')');
+			}
+
+			putRelStr(node->rel, type, buf);
+			break;
+	}
+}
+
+void putRelStr(tRel * rel, int type,
+	struct bufferlist * buf)
+{
+	if (buf == NULL || rel == NULL)
+		return;
+
+	switch (rel->relType)
+	{
+		case TREL_PIPE:
+			addStr(buf, " | ");
+			break;
+		case TREL_AND:
+			addStr(buf, " && ");
+			break;
+		case TREL_OR:
+			addStr(buf, " || ");
+			break;
+		case TREL_SCRIPT:
+			addStr(buf, " ; ");
+			break;
+	}
+
+	if (rel->relType != TREL_END)
+		putNodeStr(rel->next, type, buf);
+}
+
+void putCmdStr(simpleCmd * cmd, struct bufferlist * buf)
+{
+	char ** pstr;
+
+	if (cmd == NULL || buf == NULL)
+		return;
+
+	pstr = cmd->argv;
+
+	while (*pstr != NULL)
+	{
+		addStr(buf, *pstr++);
+		if (*pstr != NULL)
+			addChar(buf, ' ');
+	}
+
+	if (cmd->rdrOutputFile != NULL)
+	{
+		if (cmd->rdrOutputAppend)
+			addStr(buf, " >> ");
+		else
+			addStr(buf, " > ");
+		addStr(buf, cmd->rdrOutputFile);
+	}
+
+	if (cmd->rdrInputFile != NULL)
+	{
+		addStr(buf, " < ");
+		addStr(buf, cmd->rdrInputFile);
+	}
 }

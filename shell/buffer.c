@@ -26,6 +26,15 @@ void addChar(struct bufferlist * buffer, char c)
 	++buffer->count;
 }
 
+void addStr(struct bufferlist * buffer, char * str)
+{
+	if (str == NULL || buffer == NULL)
+		return;
+
+	while (*str != '\0')
+		addChar(buffer, *str++);
+}
+
 int getChar(struct bufferlist * buffer)
 {
 	char c;

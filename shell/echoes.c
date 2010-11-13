@@ -7,7 +7,7 @@ const char promtFormat[]    = "%s@ ";
 const char promtFormatExt[] = "> ";
 
 void echoErrorLex(void);
-void exhoErrorSymbol(void);
+void echoErrorSymbol(void);
 
 void echoPromt(int num)
 {
@@ -71,12 +71,15 @@ void echoLexerError(void)
 	{
 		case LE_UNEXPECTED_SYMBOL:
 			fprintf(stderr, "%sUnexpected symbol\n", errHead);
+			echoErrorSymbol();
 			break;
 		case LE_UNCLOSED_QUOTES:
 			fprintf(stderr, "%sUnclosed quotes\n", errHead);
+			echoErrorSymbol();
 			break;
 		case LE_UNKNOWN_LEXER_STATE:
 			fprintf(stderr, "%s(Internal) Lexer went to unknown state\n", errHead);
+			echoErrorSymbol();
 			break;
 		case LE_NONE:
 		default:
@@ -100,6 +103,6 @@ void echoErrorLex(void)
 		fprintf(stderr, "\n");
 }
 
-void exhoErrorSymbol(void)
+void echoErrorSymbol(void)
 {
 }
