@@ -3,66 +3,95 @@
 #include "echoes.h"
 #include "parser/parser.h"
 
-/*char testStr[] = "w1| w2	>> w3 && (abc ; def & noh);woe  && olo || salsa ; tekila &";*/
+struct programStatus prStatus;
+
+void initProgram(int, char **, char **);
+void PrintUsage(void);
 
 int main (int argc, char ** argv, char ** envp)
 {
-	struct programStatus status;
-
-	status.argc = argc;
-	status.argv = argv;
-	status.envp = envp;
-	status.pgid = getpgrp();
-	status.pid = getpid();
-
-	if (argc == 2 && strcmp(argv[1], "-e") == 0)
-		status.justEcho = 1;
-	else
-		status.justEcho = 0;
+	initProgram(argc, argv, envp);
 
 	initParser();
 
 	for(;;)
 	{
-		int pStatus;
 		tCmd * cmd;
 
 		echoPromt(PROMT_DEFAULT);
-		pStatus = parse(&cmd);
+		prStatus.parse = parse(&cmd);
 
-		if (pStatus == PS_OK)
+		if (prStatus.parse == PS_OK)
 		{
-			echoCmdTree(cmd);
+			if (prStatus.justEcho)
+				echoCmdTree(cmd);
+			else
+				/*processCmdTree(cmd);*/
+				;
 		}
-		else if (pStatus == PS_ERROR)
+		else if (prStatus.parse == PS_ERROR)
 		{
+			/*processParsingErrors(prStatus.parse);*/
+			echoParserError();
 			break;
 		}
-		else if (pStatus == PS_EOF)
+		else if (prStatus.parse == PS_EOF)
 		{
 			delTCmd(&cmd);
+			echoPromt(PROMT_LEAVING);
 			break;
 		}
 	}
 
 	clearParser();
 
+	return EXIT_SUCCESS;
+}
 
-	/*while (1)*/
-	/*{*/
-		/*checkZombies();*/
+void initProgram(int argc, char ** argv, char ** envp)
+{
+	int opt;
 
-		/*status.parse = parse(&cmdTree);*/
+	prStatus.argc = argc;
+	prStatus.argv = argv;
+	prStatus.envp = envp;
+	prStatus.pgid = getpgrp();
+	prStatus.pid = getpid();
 
-		/*if (processParsingErrors(status.parse))*/
-			/*break;*/
+	prStatus.justEcho = 0;
+	prStatus.quiet = 0;
 
-		/*if (cmdTree)*/
-			/*processCommand(&status, cmdTree);*/
+	while ((opt = getopt(argc, argv, "eq")) != -1)
+	{
+		switch (opt)
+		{
+			case 'e':
+				prStatus.justEcho = 1;
+				break;
+			case 'q':
+				prStatus.quiet = 1;
+				break;
+			default:
+				PrintUsage();
+				exit(EXIT_FAILURE);
+		}
+	}
 
-		/*if (status.parse == PARSE_ST_EOF)*/
-			/*break;*/
-	/*}*/
+	if (optind < argc)
+	{
+		fprintf(stderr, "%s: too many args\n", argv[0]);
+		PrintUsage();
+		exit(EXIT_FAILURE);
+	}
+}
 
-	return 0;
+void PrintUsage(void)
+{
+	static char help[] =
+		"Flags mean:\n"
+		"	-e	Just echo parsed strings, not execute anything\n"
+		"	-q	Quiet work -- without promting\n";
+
+	fprintf(stderr, "Usage: %s [-e] [-q]\n", prStatus.argv[0]);
+	fprintf(stderr, "%s", help);
 }

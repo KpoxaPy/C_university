@@ -48,6 +48,16 @@ int isWaitChar();
 void gc();
 void echoExtendedPromt();
 
+void lexItQuiet()
+{
+	gcInfo.quiet = 1;
+}
+
+void lexItVerbose()
+{
+	gcInfo.quiet = 0;
+}
+
 void initLexer()
 {
 	gcInfo.type = GC_TYPE_STDIN;

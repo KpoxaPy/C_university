@@ -3,6 +3,7 @@
 
 #define PROMT_DEFAULT 1
 #define PROMT_EXTENDED 2
+#define PROMT_LEAVING 3
 
 #define ERROR_QUOTES 1
 #define ERROR_AMP 2
@@ -11,5 +12,8 @@
 
 void echoPromt(int);
 void echoError(int);
+
+void echoParserError(void);
+void echoLexerError(void);
 
 #endif

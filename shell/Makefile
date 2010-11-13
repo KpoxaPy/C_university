@@ -11,20 +11,19 @@ SRCFILES = main.c $(SRCMODULES)
 
 shell: main.c $(OBJMODULES)
 	$(CC) $(CFLAGS) $^ -o $@
-	rm -f *.o deps.mk
 
-# ifneq (clean, $(MAKECMDGOLAS))
-# 	-include deps.mk
-# endif
+#ifneq (clean, $(MAKECMDGOLAS))
+	#-include deps.mk
+#endif
 
-deps.mk: $(SRCFILES)
-	$(CC) -MM $^ > $@
+#deps.mk: $(SRCFILES)
+	#$(CC) -MM $^ > $@
 
 run: shell
 	./shell
 
 clean:
-	rm -f *.o shell deps.mk *~
+	rm -f *.o parser/*.o shell deps.mk *~
 
 vim:
 

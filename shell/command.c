@@ -26,14 +26,17 @@ char ** genArgVector(lexList * list)
 	Lex * lex;
 	char ** argv;
 	int i;
+	int lc;
 
 	if (list == NULL)
 		return NULL;
 
-	argv = (char **)malloc(sizeof(char *)*
-		(list->count + 1));
+	lc = list->count;
 
-	for (i = 0; i < list->count + 1; i++)
+	argv = (char **)malloc(sizeof(char *)*
+		(lc + 1));
+
+	for (i = 0; i < lc; i++)
 	{
 		lex = getLex(list);
 
@@ -73,8 +76,9 @@ void delCommand(simpleCmd ** cmd)
 	{
 		char ** pStr = (*cmd)->argv;
 
-		while (*pStr != NULL)
-			free(*pStr++);
+		if (pStr != NULL)
+			while (*pStr != NULL)
+				free(*pStr++);
 
 		if ((*cmd)->rdrInputFile != NULL)
 			free((*cmd)->rdrInputFile);

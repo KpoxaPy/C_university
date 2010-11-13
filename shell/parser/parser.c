@@ -9,27 +9,15 @@
 #define PT_STRING 1
 /*#define PT_FILE 2*/
 
-
-/*
- *struct gcInfo {
- *  int type;
- *  int quiet;
- *  int c;
- *
- *  const char * srcStr;
- *  struct bufferlist * buf;
- *} gcInfo = {GC_TYPE_STDIN, 1, -2, NULL, NULL};
- */
-
-
 struct {
 	int type;
 	Lex * l;
+	int needLex;
 
 	const char * srcStr;
 	/*const char * fileStr;*/
 	lexList * list;
-} pSt = {PT_STDIN, NULL, NULL/*, NULL*/, NULL};
+} pSt = {PT_STDIN, NULL, 1, NULL/*, NULL*/, NULL};
 
 Lex * cur_l = NULL;
 
@@ -41,8 +29,9 @@ void resetParserError();
 
 void waitLex();
 int isWaitLex();
-void gl();
-void glhard();
+void cl();
+int gl();
+int glhard();
 
 tCmd * pT();
 tCmd * pS();
@@ -51,10 +40,21 @@ tCmd * puL();
 tCmd * pP();
 tCmd * pC();
 
+void parseItQuiet()
+{
+	lexItQuiet();
+}
+
+void parseItVerbose()
+{
+	lexItVerbose();
+}
+
 void initParser()
 {
 	pSt.type = PT_STDIN;
 
+	cl();
 	waitLex();
 
 	pSt.srcStr = NULL;
@@ -72,6 +72,7 @@ void initParserByString(char * str)
 {
 	pSt.type = PT_STRING;
 
+	cl();
 	waitLex();
 
 	pSt.srcStr = str;
@@ -95,6 +96,7 @@ void clearParser()
 {
 	pSt.type = PT_STDIN;
 
+	cl();
 	waitLex();
 
 	pSt.srcStr = NULL;
@@ -112,6 +114,16 @@ void clearParser()
 
 void waitLex()
 {
+	pSt.needLex = 1;
+}
+
+int isWaitLex()
+{
+	return pSt.needLex;
+}
+
+void cl()
+{
 	if (pSt.l != NULL)
 	{
 		delLex(pSt.l);
@@ -120,28 +132,30 @@ void waitLex()
 	}
 }
 
-int isWaitLex()
-{
-	return pSt.l == NULL;
-}
-
-void gl()
+int gl()
 {
 	pSt.l = getlex();
 	cur_l = pSt.l;
+	pSt.needLex = 0;
+
+	if (cur_l == NULL)
+	{
+		parserErrorNo = PE_LEXER_ERROR;
+		return 1;
+	}
+
+	return 0;
 }
 
-void glhard()
+int glhard()
 {
-	if (pSt.l != NULL)
-		delLex(pSt.l);
-	pSt.l = getlex();
-	cur_l = pSt.l;
+	cl();
+	return gl();
 }
 
 void setParserError(int errType)
 {
-	char * str;
+	char * str = NULL;
 	parserErrorNo = errType;
 
 	if (errorLex != NULL)
@@ -149,11 +163,9 @@ void setParserError(int errType)
 	if (cur_l != NULL)
 	{
 		if(cur_l->str != NULL)
-		{
-			str = (char *)malloc(sizeof(char)*(strlen(cur_l->str + 1)));
-			strcpy(str, cur_l->str);
-		}
-		consLex(cur_l->type, str);
+			str = strdup(cur_l->str);
+
+		errorLex = consLex(cur_l->type, str);
 	}
 }
 
@@ -178,7 +190,8 @@ int parse(tCmd ** cmd)
 	}
 
 	if (isWaitLex())
-		gl();
+		if (gl())
+			return PS_ERROR;
 
 	*cmd = pT();
 
@@ -199,7 +212,8 @@ int parse(tCmd ** cmd)
 		cur_l->type != LEX_EOF)
 	{
 		do
-			glhard();
+			if (glhard())
+				break;
 		while (cur_l->type != LEX_EOL &&
 			cur_l->type != LEX_EOF);
 	}
@@ -213,7 +227,7 @@ tCmd * pT()
 
 	if (cur_l->type == LEX_EOL)
 	{
-		glhard();
+		waitLex();
 		return NULL;
 	}
 	else if (cur_l->type == LEX_EOF)
@@ -227,7 +241,11 @@ tCmd * pT()
 	if (cur_l->type == LEX_BG)
 	{
 		cmd->modeBG = 1;
-		glhard();
+		if (glhard())
+		{
+			delTCmd(&cmd);
+			return NULL;
+		}
 	}
 
 	if (cur_l->type != LEX_EOL &&
@@ -257,7 +275,11 @@ tCmd * pS()
 	{
 		tCmd * tmp;
 		int type = TREL_SCRIPT;
-		glhard();
+		if (glhard())
+		{
+			delTCmd(&cmd);
+			return NULL;
+		}
 
 		tmp = pL();
 
@@ -306,7 +328,11 @@ tCmd * pL()
 		tCmd * tmp;
 		int type = (cur_l->type == LEX_AND ?
 			TREL_AND : TREL_OR);
-		glhard();
+		if (glhard())
+		{
+			delTCmd(&cmd);
+			return NULL;
+		}
 
 		tmp = puL();
 
@@ -345,7 +371,8 @@ tCmd * puL()
 
 	if (cur_l->type == LEX_LPAREN)
 	{
-		glhard();
+		if (glhard())
+			return NULL;
 
 		cmd = pS();
 
@@ -358,7 +385,11 @@ tCmd * puL()
 			delTCmd(&cmd);
 			return NULL;
 		}
-		glhard();
+		if (glhard())
+		{
+			delTCmd(&cmd);
+			return NULL;
+		}
 	}
 	else
 	{
@@ -385,7 +416,11 @@ tCmd * pP()
 	{
 		tCmd * tmp;
 		int type = TREL_PIPE;
-		glhard();
+		if (glhard())
+		{
+			delTCmd(&cmd);
+			return NULL;
+		}
 
 		tmp = pC();
 
@@ -436,7 +471,12 @@ tCmd * pC()
 
 	for(;;)
 	{
-		gl();
+		if (gl())
+		{
+			clearLexList(pSt.list);
+			delCommand(&smpl);
+			return NULL;
+		}
 
 		if (cur_l->type == LEX_WORD)
 			addLex(pSt.list, pSt.l);
@@ -445,7 +485,12 @@ tCmd * pC()
 			cur_l->type == LEX_REDIRECT_OUTPUT_APPEND)
 		{
 			int type = cur_l->type;
-			glhard();
+			if (glhard())
+			{
+				clearLexList(pSt.list);
+				delCommand(&smpl);
+				return NULL;
+			}
 
 			if (cur_l->type != LEX_WORD)
 			{
@@ -491,32 +536,3 @@ tCmd * pC()
 
 	return cmd;
 }
-
-/*
- *  for (;;)
- *  {
- *    clearLexList(list);
- *
- *    for (;;)
- *    {
- *      lex = getlex();
- *
- *      if (lex != NULL)
- *        addLex(list, lex);
- *      else
- *        break;
- *
- *      if (lex->type == LEX_EOF || lex->type == LEX_EOL)
- *        break;
- *    }
- *
- *    if (lex != NULL)
- *      echoLexList(list);
- *    else
- *      printf("Inner error!\n");
- *
- *    if(lex == NULL || lex->type == LEX_EOF)
- *      break;
- *  }
- *  clearLexList(list);
- */

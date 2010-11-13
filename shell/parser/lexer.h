@@ -29,6 +29,8 @@ typedef struct Lex {
 extern int lexerErrorNo;
 extern char *lexTypeStr[];
 
+void lexItQuiet();
+void lexItVerbose();
 void initLexer();
 void initLexerByString(const char *);
 void clearLexer();
