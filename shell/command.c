@@ -296,6 +296,10 @@ void putNodeStr(tCmd * node, int type,
 	if (node == NULL)
 		return;
 
+	if (node->cmdType != TCMD_SIMPLE &&
+		prStatus.debug)
+		addStr(buf, "[-");
+
 	switch (type)
 	{
 		case TCMD_NONE:
@@ -305,8 +309,6 @@ void putNodeStr(tCmd * node, int type,
 				putCmdStr(node->cmd, buf);
 			else
 				putNodeStr(node->child, node->cmdType, buf);
-
-			putRelStr(node->rel, type, buf);
 			break;
 
 		case TCMD_LIST:
@@ -321,10 +323,14 @@ void putNodeStr(tCmd * node, int type,
 				putNodeStr(node->child, node->cmdType, buf);
 				addChar(buf, ')');
 			}
-
-			putRelStr(node->rel, type, buf);
 			break;
 	}
+
+	if (node->cmdType != TCMD_SIMPLE &&
+		prStatus.debug)
+		addStr(buf, "-]");
+
+	putRelStr(node->rel, type, buf);
 }
 
 void putRelStr(tRel * rel, int type,

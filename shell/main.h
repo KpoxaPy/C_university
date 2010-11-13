@@ -10,8 +10,11 @@
 struct programStatus {
 	short parse,
 				internal,
+				quiet,
+				justHelp,
 				justEcho,
-				quiet;
+				wideEcho,
+				debug;
 	int argc;
 	char ** argv;
 	char ** envp;
