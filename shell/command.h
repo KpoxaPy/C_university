@@ -24,6 +24,8 @@ typedef struct simpleCmd {
 	char * rdrInputFile,
 		* rdrOutputFile;
 	int rdrOutputAppend;
+
+	int pFDin, pFDout;
 } simpleCmd;
 
 typedef struct tCmd {

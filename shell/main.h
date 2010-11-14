@@ -9,7 +9,6 @@
 
 struct programStatus {
 	short parse,
-				internal,
 				quiet,
 				justHelp,
 				justEcho,
@@ -23,5 +22,7 @@ struct programStatus {
 };
 
 extern struct programStatus prStatus;
+
+void endWork(int);
 
 #endif

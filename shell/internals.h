@@ -3,13 +3,19 @@
 
 #include "main.h"
 #include "command.h"
-#include "words.h"
 
-int runEcho(struct programStatus * , struct wordlist * );
-int runExit(struct programStatus * );
-int runCD(struct programStatus * , struct command * );
-int runJobs(struct programStatus * , struct command * );
-int runJobsBG(struct programStatus * , struct command * );
-int runJobsFG(struct programStatus * , struct command * );
+#define INTERNAL_COMMAND_SUCCESS 0
+#define INTERNAL_COMMAND_FAILURE 1
+#define INTERNAL_COMMAND_CONTINUE 2
+
+int checkInternalCommands(simpleCmd *);
+
+int runExit();
+int runCD(simpleCmd *);
+/*
+ *int runJobs(simpleCmd *);
+ *int runJobsBG(simpleCmd *);
+ *int runJobsFG(simpleCmd *);
+ */
 
 #endif

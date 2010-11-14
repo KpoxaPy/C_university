@@ -5,113 +5,236 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include "run.h"
-#include "internals.h" 
+#include "internals.h"
 
-int run(struct programStatus *, struct command * );
-int checkInternalCommands(struct programStatus *, struct command *);
+pid_t execSimpleCommand(simpleCmd *, int);
+pid_t execOutterCommand(simpleCmd *, int);
 
-int runFG(struct programStatus *, struct command *);
-int runBG(struct programStatus *, struct command *);
+int runSimpleCommand(simpleCmd *, int *);
+int runPipe(tCmd *, int *);
 
-int processCommand(struct programStatus * pstatus, struct cmdElem * cmdTree)
+/*int runFG(simpleCmd *);*/
+/*int runBG(simpleCmd *);*/
+
+int processRedirectInput(simpleCmd *);
+int processRedirectOutput(simpleCmd *);
+
+void processCmdTree(tCmd * node)
 {
 /*
- *  status.internal = checkInternalCommands(&status, command);
+ *  status.internal = checkInternalCommands(&status, cmd);
  *
  *  if (status.internal == INTERNAL_COMMAND_BREAK)
  *    break;
  *  else if (status.internal == INTERNAL_COMMAND_OK)
- *    run(&status, command);
+ *    run(&status, cmdmand);
  *  [> else if internalStatus == INTERNAL_COMMAND_CONTINUE <]
  *
- *  if (!command->bg)
- *    delCommand(&command);
+ *  if (!cmdmand->bg)
+ *    delCommand(&cmdmand);
  */
-	return INTERNAL_COMMAND_BREAK;
+	if (node == NULL)
+		return;
+
+	if (node->cmdType == TCMD_SIMPLE)
+		runSimpleCommand(node->cmd, NULL);
+	else if (node->cmdType == TCMD_PIPE)
+		runPipe(node, NULL);
 }
 
-int run(struct programStatus * pstatus, struct command * com)
+pid_t execSimpleCommand(simpleCmd * cmd, int pgid)
 {
-	if (!com->bg)
-		return runFG(pstatus, com);
+	int fdin = dup(0),
+			fdout = dup(1);
+	int internalStatus;
+	int returnStatus = 0;
+
+	if (cmd->pFDin == -1)
+		returnStatus = processRedirectInput(cmd);
 	else
-		return runBG(pstatus, com);
+	{
+		dup2(cmd->pFDin, 0);
+		close(cmd->pFDin);
+	}
+
+	if (cmd->pFDout == -1)
+		returnStatus = processRedirectOutput(cmd);
+	else
+	{
+		dup2(cmd->pFDout, 1);
+		close(cmd->pFDout);
+	}
+
+	if (!returnStatus)
+	{
+		internalStatus = checkInternalCommands(cmd);
+
+		if (internalStatus == INTERNAL_COMMAND_CONTINUE)
+			returnStatus = execOutterCommand(cmd, pgid);
+		else if (internalStatus == INTERNAL_COMMAND_FAILURE)
+			returnStatus = -1;
+		else if (internalStatus == INTERNAL_COMMAND_SUCCESS)
+			returnStatus = 0;
+	}
+
+	dup2(fdin, 0);
+	close(fdin);
+	dup2(fdout, 1);
+	close(fdout);
+
+	return returnStatus;
 }
 
-int runFG(struct programStatus * pstatus, struct command * com)
+pid_t execOutterCommand(simpleCmd * cmd, int pgid)
 {
 	pid_t pid;
-	int status;
 
 	if ((pid = fork()) == 0)
 	{
-		if (setpgid(0, 0))
+		if (setpgid(0, pgid))
 		{
 			perror("Setpgid(0, 0) makes bad :(\n");
-			exit(1);
+			exit(EXIT_FAILURE);
 		}
 
-		execvp(com->file, com->argv);
-		perror(com->file);
-		exit(1);
+		execvp(cmd->file, cmd->argv);
+		perror(cmd->file);
+		exit(EXIT_FAILURE);
 	}
 
-	signal(SIGTTOU, SIG_IGN);
-	tcsetpgrp(0, pid);
-
-	status = waitFG(pid);
-
-	tcsetpgrp(0, pstatus->pgid);
-	signal(SIGTTOU, SIG_DFL);
-
-	return status;
+	return pid;
 }
 
-int runBG(struct programStatus * pstatus, struct command * com)
+int runSimpleCommand(simpleCmd * cmd, int * status)
 {
-	pid_t pid;
-	jid_t jid;
+	pid_t pid = execSimpleCommand(cmd, 0);
+	int returnStatus = pid;
 
-	if ((pid = fork()) == 0)
+	if (pid > 0)
 	{
-		if (setpgid(0, 0))
-		{
-			perror("Setpgid(0, 0) makes bad :(\n");
-			exit(1);
-		}
+		signal(SIGTTOU, SIG_IGN);
+		tcsetpgrp(0, pid);
 
-		execvp(com->file, com->argv);
-		perror(com->file);
-		exit(1);
+		waitpid(pid, status, 0);
+
+		tcsetpgrp(0, prStatus.pgid);
+		signal(SIGTTOU, SIG_DFL);
+
+		if ((status != NULL && *status == 0) || status == NULL)
+			returnStatus = 0;
 	}
 
-	// Adding proccess into manager
-	jid = addJob(pid, com);	
-	setLastJid(jid);	
+	return returnStatus;
+}
+
+int runPipe(tCmd * node, int * status)
+{
+	return 0;
+}
+
+int processRedirectInput(simpleCmd * cmd)
+{
+	if (cmd->rdrInputFile != NULL)
+	{
+		int fd;
+		if ((fd = open(cmd->rdrInputFile, O_RDONLY)) == -1)
+		{
+			perror(cmd->rdrInputFile);
+			return -1;
+		}
+
+		dup2(fd, 0);
+		close(fd);
+	}
 
 	return 0;
 }
 
-int checkInternalCommands(struct programStatus * pstatus,
-		struct command * com)
+int processRedirectOutput(simpleCmd * cmd)
 {
-	int status = INTERNAL_COMMAND_OK;
-
-	if (com->file != NULL)
+	if (cmd->rdrOutputFile != NULL)
 	{
-		if (pstatus->justEcho)
-			status = runEcho(pstatus, com->words);
-		else if (strcmp(com->file, "exit") == 0)
-			status = runExit(pstatus);
-		else if (strcmp(com->file, "cd") == 0)
-			status = runCD(pstatus, com);
-		else if (strcmp(com->file, "jobs") == 0)
-			status = runJobs(pstatus, com);
-		else if (strcmp(com->file, "bg") == 0)
-			status = runJobsBG(pstatus, com);
-		else if (strcmp(com->file, "fg") == 0)
-			status = runJobsFG(pstatus, com);
+		int fd;
+		int flags = O_WRONLY | O_CREAT;
+		int mode = 0644;
+
+		if (cmd->rdrOutputAppend)
+			flags |= O_APPEND;
+
+		if ((fd = open(cmd->rdrOutputFile, flags, mode)) == -1)
+		{
+			perror(cmd->rdrOutputFile);
+			return -1;
+		}
+
+		dup2(fd, 1);
+		close(fd);
 	}
 
-	return status;
+	return 0;
 }
+
+/*
+ *int run(simpleCmd * cmd)
+ *{
+ *  if (!cmd->bg)
+ *    return runFG(pstatus, cmd);
+ *  else
+ *    return runBG(pstatus, cmd);
+ *}
+ */
+/*int runFG(simpleCmd * cmd)
+ *{
+ *  pid_t pid;
+ *  int status;
+ *
+ *  if ((pid = fork()) == 0)
+ *  {
+ *    if (setpgid(0, 0))
+ *    {
+ *      perror("Setpgid(0, 0) makes bad :(\n");
+ *      exit(1);
+ *    }
+ *
+ *    execvp(cmd->file, cmd->argv);
+ *    perror(cmd->file);
+ *    exit(1);
+ *  }
+ *
+ *  signal(SIGTTOU, SIG_IGN);
+ *  tcsetpgrp(0, pid);
+ *
+ *  status = waitFG(pid);
+ *
+ *  tcsetpgrp(0, pstatus->pgid);
+ *  signal(SIGTTOU, SIG_DFL);
+ *
+ *  return status;
+ *}
+ *
+ *int runBG(simpleCmd * cmd)
+ *{
+ *  pid_t pid;
+ *  jid_t jid;
+ *
+ *  if ((pid = fork()) == 0)
+ *  {
+ *    if (setpgid(0, 0))
+ *    {
+ *      perror("Setpgid(0, 0) makes bad :(\n");
+ *      exit(1);
+ *    }
+ *
+ *    execvp(cmd->file, cmd->argv);
+ *    perror(cmd->file);
+ *    exit(1);
+ *  }
+ *
+ *  // Adding proccess into manager
+ *  jid = addJob(pid, cmd);	
+ *  setLastJid(jid);	
+ *
+ *  return 0;
+ *}
+ *
+ */

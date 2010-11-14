@@ -71,9 +71,13 @@ simpleCmd * newCommand()
 	cmd->file = NULL;
 	cmd->argc = 0;
 	cmd->argv = NULL;
+
 	cmd->rdrInputFile = NULL;
 	cmd->rdrOutputFile = NULL;
 	cmd->rdrOutputAppend = 0;
+
+	cmd->pFDin = -1;
+	cmd->pFDout = -1;
 
 	return cmd;
 }

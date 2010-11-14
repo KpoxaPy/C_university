@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <getopt.h>
 #include "main.h"
+#include "run.h"
 #include "echoes.h"
 #include "parser/parser.h"
 
@@ -39,8 +40,7 @@ int main (int argc, char ** argv, char ** envp)
 			else if (prStatus.justEcho && prStatus.wideEcho)
 				echoCmdTree(cmd);
 			else
-				/*processCmdTree(cmd);*/
-				;
+				processCmdTree(cmd);
 		}
 		else if (prStatus.parse == PS_ERROR)
 		{
@@ -156,4 +156,9 @@ void printUsage(void)
 
 	fprintf(stderr, "Usage: %s [-dehqw]\n", prStatus.argv[0]);
 	fprintf(stderr, "\n%s", help);
+}
+
+void endWork(int status)
+{
+	exit(status);
 }
