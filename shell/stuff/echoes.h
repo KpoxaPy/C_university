@@ -8,7 +8,7 @@
 #define ERROR_QUOTES 1
 #define ERROR_AMP 2
 
-#include "main.h"
+#include "../main.h"
 
 void echoPromt(int);
 void echoError(int);

@@ -1,7 +1,7 @@
 #ifndef _BUFFER_H_
 #define _BUFFER_H_
 
-#include "main.h"
+#include "../main.h"
 
 #define BUF_PIECE_SIZE 32
 

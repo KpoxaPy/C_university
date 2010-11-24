@@ -1,7 +1,7 @@
 #ifndef _RUN_H_
 #define _RUN_H_
 
-#include "main.h"
+#include "../main.h"
 #include "command.h"
 
 typedef struct Task {

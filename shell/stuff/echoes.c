@@ -1,7 +1,6 @@
-#include <unistd.h>
 #include "echoes.h"
-#include "parser/parser.h"
-#include "parser/lexer.h"
+#include "../parser/parser.h"
+#include "../parser/lexer.h"
 
 const char promtFormat[]    = "%s@ ";
 const char promtFormatExt[] = "> ";

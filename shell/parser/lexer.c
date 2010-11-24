@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include "../buffer.h"
-#include "../echoes.h"
+#include "../stuff/buffer.h"
+#include "../stuff/echoes.h"
 #include "lexer.h"
 
 #define GC_TYPE_STDIN 0

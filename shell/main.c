@@ -1,8 +1,8 @@
 #include <getopt.h>
 #include <signal.h>
 #include "main.h"
-#include "run.h"
-#include "echoes.h"
+#include "run/run.h"
+#include "stuff/echoes.h"
 #include "parser/parser.h"
 
 struct programStatus prStatus;

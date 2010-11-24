@@ -1,7 +1,7 @@
 #ifndef _COMMAND_H_
 #define _COMMAND_H_
 
-#include "parser/lexlist.h"
+#include "../parser/lexlist.h"
 
 #define TCMD_NONE -1
 #define TCMD_SIMPLE 0

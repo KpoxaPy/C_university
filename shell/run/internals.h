@@ -1,7 +1,7 @@
 #ifndef _INTERNALS_H_
 #define _INTERNALS_H_
 
-#include "main.h"
+#include "../main.h"
 #include "command.h"
 
 #define INTERNAL_COMMAND_SUCCESS 0

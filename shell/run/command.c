@@ -1,5 +1,5 @@
 #include "command.h"
-#include "buffer.h"
+#include "../stuff/buffer.h"
 
 int echoCmdTreeIndentLevel;
 

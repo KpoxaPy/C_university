@@ -1,7 +1,7 @@
 #ifndef _PARSER_H_
 #define _PARSER_H_
 
-#include "../command.h"
+#include "../run/command.h"
 #include "lexer.h"
 
 #define PS_ERROR -1
