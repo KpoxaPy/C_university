@@ -3,12 +3,6 @@
 #include <signal.h>
 #include "jobmanager.h"
 
-#define JM_ST_NONE 0
-#define JM_ST_RUNNING 1
-#define JM_ST_CONTINUED 2
-#define JM_ST_STOPPED 3
-#define JM_ST_COMPLETED 4
-
 #define JM_MES_NONE 0
 #define JM_MES_RUNNING 1
 #define JM_MES_CONTINUED 2
@@ -18,37 +12,9 @@
 #define JM_MESTG_IN 0
 #define JM_MESTG_ERR 1
 
-typedef struct process {
-	simpleCmd * cmd;
-	pid_t pid;
-
-	int retStatus;
-	int status;
-
-	struct process * next;
-} Process;
-
-typedef struct job {
-	jid_t jid;
-	pid_t pgid;
-
-	Task * task;
-	Process * firstProc;
-
-	int retStatus;
-	int status;
-	int notified;
-
-	struct termios tmodes;
-	int stdin, stdout, stderr;
-
-	struct job * next;
-	struct job * prev;
-} Job;
-
 struct manager {
-	struct job * first;
-	struct job * last;
+	mJob * first;
+	mJob * last;
 	int count;
 
 	jid_t last_jid;
@@ -68,46 +34,20 @@ char * stMessages[] = {
 	"Complited"
 };
 
-/* Managing jobs:
- *  - adding in manager;
- *  - deleting from manager.
- */
-jid_t addJob(pid_t, Task *);
-Job * newJob(void);
-void delJob(Job *);
-void delJobByJid(jid_t);
+mJob * newMJob(void);
+void delMJob(mJob **);
 
 /* Properties */
 int markProcessStatus(pid_t, int);
-int jobIsStopped(Job *);
-int jobIsCompleted(Job *);
-
-/* Changing the last and the penult jid in the list. */
-void setPenultByLastJid();
-void setLastJid(jid_t);
-
-/* Base executing and control functions */
-void execCmd(Process *, pid_t, int, int, int, int);
-void launchJob(Job *, int);
-int makeFG(jid_t, int);
-int makeBG(jid_t, int);
-void waitJob(jid_t);
+int jobIsStopped(mJob *);
+int jobIsCompleted(mJob *);
 
 /* Periodicaly called functions to take actual
  * information about jobs */
 void updateStatus(void);
-void checkJobs(void);
-
-/* Working with list of jobs */
-Job * getJob(jid_t);
-Job * getJobByGpid(pid_t);
-Job * getJobByPid(pid_t, Process **);
-pid_t getGpidByJid(jid_t);
 
 /* Echoing jobs */
-void echoJob(struct job * job, int, int);
-void echoJobList(void);
-
+void echoJob(mJob *, int, int);
 
 
 /*------------------------------------------------------------------------*/
@@ -164,127 +104,19 @@ void setPenultByLastJid()
 /*
  * Base executing functions.
  */
-void execCmd(Process * p, pid_t pgid,
-	int infile, int outfile, int errfile,
-	int foreground)
-{
-	pid_t pid;
-
-	if (prStatus.isInteractive)
-	{
-		pid = getpid();
-		if (pgid == 0)
-			pgid = pid;
-		setpgid(pid, pgid);
-
-		if (foreground)
-			tcsetpgrp(prStatus.terminal, pgid);
-
-		signal (SIGINT, SIG_DFL);
-		signal (SIGQUIT, SIG_DFL);
-		signal (SIGTSTP, SIG_DFL);
-		signal (SIGTTIN, SIG_DFL);
-		signal (SIGTTOU, SIG_DFL);
-		signal (SIGCHLD, SIG_DFL);
-	}
-
-	if (infile != STDIN_FILENO)
-	{
-		dup2(infile, STDIN_FILENO);
-		close(infile);
-	}
-	if (outfile != STDOUT_FILENO)
-	{
-		dup2(outfile, STDOUT_FILENO);
-		close(outfile);
-	}
-	if (errfile != STDERR_FILENO)
-	{
-		dup2(errfile, STDERR_FILENO);
-		close(errfile);
-	}
-
-	execvp(p->cmd->file, p->cmd->argv);
-	perror("exevp");
-	exit(EXIT_FAILURE);
-}
-
-void launchJob(Job * j, int foreground)
-{
-	Process * p;
-	pid_t pid;
-	int pipev[2], infile, outfile;
-
-	infile = j->stdin;
-
-	for (p = j->firstProc; p; p = p->next)
-	{
-		/* Set up pipes, if need */
-		if (p->next)
-		{
-			if (pipe(pipev) < 0)
-			{
-				perror("pipe");
-				endWork(EXIT_FAILURE);
-			}
-			outfile = pipev[1];
-		}
-		else
-			outfile = j->stdin;
-
-		/* make child :) */
-		if ((pid = fork()) == 0)
-		/* baby */
-			execCmd(p, j->pgid,
-				infile, j->stderr, outfile,
-				foreground);
-		else if (pid > 0)
-		{ /* happy parent */
-			p->pid = pid;
-			p->status = JM_ST_RUNNING;
-			if (prStatus.isInteractive)
-			{
-				if (!j->pgid)
-					j->pgid = pid;
-				setpgid(pid, j->pgid);
-			}
-		}
-		else
-		{ /* failed to make child, poor parent :( */
-			perror("fork");
-			endWork(EXIT_FAILURE);
-		}
-
-		if (infile != STDIN_FILENO)
-			close(infile);
-		if (outfile != STDOUT_FILENO)
-			close(outfile);
-		infile = pipev[0];
-	}
-
-	j->status = JM_ST_RUNNING;
-
-	if (!prStatus.isInteractive)
-		waitJob(j->jid);
-	else if (foreground)
-		makeFG(j->jid, 0);
-	else
-		makeBG(j->jid, 0);
-}
-
 int makeFG(jid_t jid, int cont)
 {
-	Job * j = getJob(jid);
+	mJob * j = getJob(jid);
 
 	if (j == NULL)
 		return -1;
 
-	tcsetpgrp(prStatus.terminal, j->pgid);
+	tcsetpgrp(prStatus.terminal, j->job->pgid);
 
 	if (cont)
 	{
-		tcsetattr(prStatus.terminal, TCSADRAIN, &j->tmodes);
-		if (kill(-j->pgid, SIGCONT) < 0)
+		tcsetattr(prStatus.terminal, TCSADRAIN, &j->job->tmodes);
+		if (kill(-j->job->pgid, SIGCONT) < 0)
 			perror("kill (SIGCONT)");
 	}
 
@@ -292,7 +124,7 @@ int makeFG(jid_t jid, int cont)
 
 	tcsetpgrp(prStatus.terminal, prStatus.pgid);
 
-	tcgetattr(prStatus.terminal, &j->tmodes);
+	tcgetattr(prStatus.terminal, &j->job->tmodes);
 	tcsetattr(prStatus.terminal, TCSADRAIN, &prStatus.tmodes);
 
 	return 1;
@@ -300,13 +132,13 @@ int makeFG(jid_t jid, int cont)
 
 int makeBG(jid_t jid, int cont)
 {
-	Job * j = getJob(jid);
+	mJob * j = getJob(jid);
 
 	if (j == NULL)
 		return -1;
 
 	if (cont)
-		if (kill(-j->pgid, SIGCONT) < 0)
+		if (kill(-j->job->pgid, SIGCONT) < 0)
 		{
 			perror("kill (SIGCONT)");
 			return -1;
@@ -317,7 +149,7 @@ int makeBG(jid_t jid, int cont)
 
 void waitJob(jid_t jid)
 {
-	Job * j = getJob(jid);
+	mJob * j = getJob(jid);
 	int status;
 	pid_t pid;
 
@@ -325,7 +157,7 @@ void waitJob(jid_t jid)
 		return;
 
 	do
-		pid = waitpid(-j->pgid, &status, WUNTRACED);
+		pid = waitpid(-j->job->pgid, &status, WUNTRACED);
 	while (markProcessStatus(pid, status) &&
 		!jobIsStopped(j) &&
 		!jobIsCompleted(j));
@@ -337,51 +169,51 @@ void waitJob(jid_t jid)
  *  - adding in manager;
  *  - deleting from manager.
  */
-jid_t addJob(pid_t pid, Task * task)
+mJob * newMJob(void)
 {
-	Job * job = newJob();
-
-	job->jid = ++(manager.last_jid);
-	job->task = task;
-	
-	++manager.count;
-
-	return job->jid;
-}
-
-Job * newJob(void)
-{
-	Job * job = (Job *)malloc(sizeof(Job));
+	mJob * job = (mJob *)malloc(sizeof(mJob));
 
 	if (job == NULL)
 		return NULL;
 
 	job->jid = 0;
-	job->pgid = 0;
+	job->job = NULL;
 	job->task = NULL;
-	job->firstProc = NULL;
-	job->retStatus = 0;
+
 	job->status = JM_ST_NONE;
 	job->notified = 1;
-	job->stdin = STDIN_FILENO;
-	job->stderr = STDERR_FILENO;
-	job->stdout = STDOUT_FILENO;
 
 	job->next = NULL;
-	job->prev = manager.last;
-
-	if (manager.first == NULL)
-		manager.first = job;
-
-	if (manager.last != NULL)
-		(manager.last)->next = job;
-
-	manager.last = job;
+	job->prev = NULL;
 
 	return job;
 }
 
-void delJob(Job * job)
+jid_t addJob(pid_t pid, Task * task)
+{
+	Job * job = takeJob();
+	mJob * mjob = newMJob();
+
+	mjob->jid = ++(manager.last_jid);
+	mjob->job = job;
+	mjob->task = task;
+
+	mjob->prev = manager.last;
+
+	if (manager.first == NULL)
+		manager.first = mjob;
+
+	if (manager.last != NULL)
+		(manager.last)->next = mjob;
+
+	manager.last = mjob;
+	
+	++manager.count;
+
+	return mjob->jid;
+}
+
+void delJob(mJob * job)
 {
 	if (job == NULL)
 		return;
@@ -406,8 +238,7 @@ void delJob(Job * job)
 	else
 		job->next->prev = job->prev;
 
-	delTask(job->task);
-	free(job);
+	freeJob(job->job);
 }
 
 void delJobByJid(jid_t jid)
@@ -420,7 +251,7 @@ void delJobByJid(jid_t jid)
 /* Properties */
 int markProcessStatus(pid_t pid, int status)
 {
-	Job * j;
+	mJob * j;
 	Process * p;
 
 	if (pid > 0)
@@ -474,11 +305,11 @@ int markProcessStatus(pid_t pid, int status)
 	}
 }
 
-int jobIsStopped(Job * j)
+int jobIsStopped(mJob * j)
 {
 	Process * p;
 
-	for (p = j->firstProc; p; p = p->next)
+	for (p = j->job->firstProc; p; p = p->next)
 		if (p->status != JM_ST_STOPPED &&
 			p->status != JM_ST_COMPLETED)
 			return 0;
@@ -487,11 +318,11 @@ int jobIsStopped(Job * j)
 	return 1;
 }
 
-int jobIsCompleted(Job * j)
+int jobIsCompleted(mJob * j)
 {
 	Process * p;
 
-	for (p = j->firstProc; p; p = p->next)
+	for (p = j->job->firstProc; p; p = p->next)
 		if (p->status != JM_ST_COMPLETED)
 			return 0;
 
@@ -515,7 +346,7 @@ void updateStatus(void)
 
 void checkJobs(void)
 {
-	Job *j;
+	mJob *j;
 
 	updateStatus();
 
@@ -544,9 +375,9 @@ void checkJobs(void)
 
 /*------------------------------------------------------------------------*/
 /* Working with list of jobs */
-Job * getJob(jid_t jid)
+mJob * getJob(jid_t jid)
 {
-	Job * job = manager.first;
+	mJob * job = manager.first;
 
 	while (job != NULL)
 	{
@@ -559,13 +390,13 @@ Job * getJob(jid_t jid)
 	return NULL;
 }
 
-Job * getJobByGpid(pid_t pgid)
+mJob * getJobByGpid(pid_t pgid)
 {
-	Job * job = manager.first;
+	mJob * job = manager.first;
 
 	while (job != NULL)
 	{
-		if (job->pgid == pgid)
+		if (job->job->pgid == pgid)
 			return job;
 
 		job = job->next;
@@ -574,14 +405,14 @@ Job * getJobByGpid(pid_t pgid)
 	return NULL;
 }
 
-Job * getJobByPid(pid_t pid, Process ** proc)
+mJob * getJobByPid(pid_t pid, Process ** proc)
 {
-	Job * job = manager.first;
+	mJob * job = manager.first;
 	Process * p;
 
 	while (job != NULL)
 	{
-		p = job->firstProc;
+		p = job->job->firstProc;
 		while (p != NULL)
 		{
 			if (p->pid == pid)
@@ -602,10 +433,10 @@ Job * getJobByPid(pid_t pid, Process ** proc)
 
 pid_t getGpidByJid(jid_t jid)
 {
-	Job * j = getJob(jid);
+	mJob * j = getJob(jid);
 
 	if (j != NULL)
-		return j->pgid;
+		return j->job->pgid;
 	else
 		return 0;
 }
@@ -615,7 +446,7 @@ pid_t getGpidByJid(jid_t jid)
 /* Echoing jobs */
 void echoJobList(void)
 {
-	struct job * job = manager.first;
+	mJob * job = manager.first;
 
 	while (job != NULL)
 	{
@@ -624,7 +455,7 @@ void echoJobList(void)
 	}
 }
 
-void echoJob(struct job * job, int where, int mes)
+void echoJob(mJob* job, int where, int mes)
 {
 	char format[] = "[%d] %c %d%s %s\n";
 	char order = (job->jid == manager.last_bg_jid ? '+' :
@@ -633,9 +464,9 @@ void echoJob(struct job * job, int where, int mes)
 	char * command = getCmdString(job->task->cur);
 
 	if (where == 0) /* stdin */
-		printf(format, job->jid, order, job->pgid, stMessages[mes], command);
+		printf(format, job->jid, order, job->job->pgid, stMessages[mes], command);
 	else /* stderr */
-		fprintf(stderr, format, job->jid, order, job->pgid, stMessages[mes], command);
+		fprintf(stderr, format, job->jid, order, job->job->pgid, stMessages[mes], command);
 
 	free(command);
 }

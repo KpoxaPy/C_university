@@ -30,7 +30,6 @@ typedef struct simpleCmd {
 
 typedef struct tCmd {
 	int cmdType;
-	int modeBG;
 
 	simpleCmd * cmd;
 	struct tCmd * child;

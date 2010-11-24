@@ -2,13 +2,8 @@
 #define _RUN_H_
 
 #include "../main.h"
-#include "command.h"
+#include "task.h"
 
-typedef struct Task {
-	tCmd * root;
-	tCmd * cur;
-} Task;
-
-void processCmdTree(tCmd *);
+void runTask(Task *);
 
 #endif

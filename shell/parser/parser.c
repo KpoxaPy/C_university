@@ -4,6 +4,7 @@
 #include "parser.h"
 #include "lexer.h"
 #include "lexlist.h"
+#include "../run/command.h"
 
 #define PT_STDIN 0
 #define PT_STRING 1
@@ -33,7 +34,7 @@ void cl();
 int gl();
 int glhard();
 
-tCmd * pT();
+Task * pT();
 tCmd * pS();
 tCmd * pL();
 tCmd * puL();
@@ -177,13 +178,13 @@ void resetParserError()
 		delLex(errorLex);
 }
 
-int parse(tCmd ** cmd)
+int parse(Task ** task)
 {
 	int parseStatus;
 
 	resetParserError();
 
-	if (cmd == NULL)
+	if (task == NULL)
 	{
 		parserErrorNo = PE_NULL_POINTER;
 		return PS_ERROR;
@@ -193,9 +194,9 @@ int parse(tCmd ** cmd)
 		if (gl())
 			return PS_ERROR;
 
-	*cmd = pT();
+	*task = pT();
 
-	if (*cmd != NULL)
+	if (*task != NULL)
 		parseStatus = PS_OK;
 	else if (parserErrorNo == PE_NONE)
 	{
@@ -221,8 +222,9 @@ int parse(tCmd ** cmd)
 	return parseStatus;
 }
 
-tCmd * pT()
+Task * pT()
 {
+	Task * task = NULL;
 	tCmd * cmd;
 
 	if (cur_l->type == LEX_EOL)
@@ -240,25 +242,30 @@ tCmd * pT()
 
 	if (cur_l->type == LEX_BG)
 	{
-		cmd->modeBG = 1;
 		if (glhard())
 		{
 			delTCmd(&cmd);
 			return NULL;
 		}
+		task = newTask();
+		task->modeBG = 1;
 	}
 
 	if (cur_l->type != LEX_EOL &&
 		cur_l->type != LEX_EOF)
 	{
 		setParserError(PE_UNEXPECTED_END_OF_COMMAND);
+		delTask(&task);
 		delTCmd(&cmd);
 		return NULL;
 	}
 
+	task->root = cmd;
+	task->cur = cmd;
+
 	waitLex();
 
-	return cmd;
+	return task;
 }
 
 tCmd * pS()

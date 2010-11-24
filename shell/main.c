@@ -30,23 +30,19 @@ int main (int argc, char ** argv, char ** envp)
 
 	for(;;)
 	{
-		tCmd * cmd;
+		Task * task;
 
 		echoPromt(PROMT_DEFAULT);
-		prStatus.parse = parse(&cmd);
+		prStatus.parse = parse(&task);
 
 		if (prStatus.parse == PS_OK)
 		{
 			if (prStatus.justEcho && !prStatus.wideEcho)
-			{
-				char * str = getCmdString(cmd);
-				printf("%s\n", str);
-				free(str);
-			}
+				echoTask(task);
 			else if (prStatus.justEcho && prStatus.wideEcho)
-				echoCmdTree(cmd);
+				echoTaskWide(task);
 			else
-				processCmdTree(cmd);
+				runTask(task);
 		}
 		else if (prStatus.parse == PS_ERROR)
 		{
@@ -54,7 +50,7 @@ int main (int argc, char ** argv, char ** envp)
 		}
 		else if (prStatus.parse == PS_EOF)
 		{
-			delTCmd(&cmd);
+			delTask(&task);
 			echoPromt(PROMT_LEAVING);
 			break;
 		}

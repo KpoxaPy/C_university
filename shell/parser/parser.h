@@ -1,7 +1,7 @@
 #ifndef _PARSER_H_
 #define _PARSER_H_
 
-#include "../run/command.h"
+#include "../run/task.h"
 #include "lexer.h"
 
 #define PS_ERROR -1
@@ -17,7 +17,7 @@
 #define PE_LEXER_ERROR 5
 /*#define PE_*/
 
-int parse(tCmd **);
+int parse(Task **);
 
 void parseItQuiet();
 void parseItVerbose();
