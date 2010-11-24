@@ -1,5 +1,3 @@
-#include <stdlib.h>
-#include <stdio.h>
 #include "command.h"
 #include "buffer.h"
 
@@ -288,6 +286,21 @@ char * getCmdString(tCmd * node)
 		return NULL;
 
 	putNodeStr(node, TCMD_NONE, buf);
+	str = flushBuffer(buf);
+	free(buf);
+
+	return str;
+}
+
+char * getSimpleCmdString(simpleCmd * cmd)
+{
+	struct bufferlist * buf = newBuffer();
+	char * str;
+
+	if (buf == NULL || cmd == NULL)
+		return NULL;
+
+	putCmdStr(cmd, buf);
 	str = flushBuffer(buf);
 	free(buf);
 

@@ -1,11 +1,10 @@
 #include <fcntl.h>
-#include <unistd.h>
 #include <signal.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 #include "run.h"
 #include "internals.h"
+#include "jobmanager.h"
 
 pid_t execSimpleCommand(simpleCmd *, int);
 pid_t execOutterCommand(simpleCmd *, int);
@@ -44,10 +43,15 @@ void processCmdTree(tCmd * node)
 
 pid_t execSimpleCommand(simpleCmd * cmd, int pgid)
 {
-	int fdin = dup(0),
-			fdout = dup(1);
+	int fdin, fdout;
 	int internalStatus;
 	int returnStatus = 0;
+
+	if (cmd == NULL)
+		return -1;
+
+	fdin = dup(0);
+	fdout = dup(1);
 
 	if (cmd->pFDin == -1)
 		returnStatus = processRedirectInput(cmd);
@@ -89,6 +93,9 @@ pid_t execOutterCommand(simpleCmd * cmd, int pgid)
 {
 	pid_t pid;
 
+	if (cmd == NULL)
+		return -1;
+
 	if ((pid = fork()) == 0)
 	{
 		if (setpgid(0, pgid))
@@ -129,9 +136,98 @@ int runSimpleCommand(simpleCmd * cmd, int * status)
 
 int runPipe(tCmd * node, int * status)
 {
+	tCmd * child;
+	pid_t parentID = 0;
+	int fd[2];
+
+	struct {
+		pid_t pid;
+		simpleCmd * cmd;
+	} pids[50];
+	int curpid = 0;
+	int tpid;
+
+	if (node == NULL || node->cmdType != TCMD_PIPE)
+		return -1;
+
+	child = node->child;
+
+	while (child != NULL)
+	{
+		if (child->rel != NULL && child->rel->relType != TREL_END)
+			pipe(fd);
+
+		if (child != node->child)
+			child->cmd->pFDin = fd[0];
+		if (child->rel != NULL && child->rel->relType != TREL_END)
+			child->cmd->pFDout = fd[1];
+
+		if ((tpid = execSimpleCommand(child->cmd, parentID)) > 0)
+		{
+			char * str = getSimpleCmdString(child->cmd);
+
+			pids[curpid].pid = tpid;
+			pids[curpid].cmd = child->cmd;
+			curpid++;
+			if (parentID == 0)
+			{
+				parentID = pids[curpid - 1].pid;
+				fprintf(stderr, "[%d] (%s) is parent\n", parentID, str);
+			}
+			fprintf(stderr, "[%d] (%s) started\n", tpid, str);
+
+			free(str);
+		}
+		else
+			break;
+
+		if (child->rel == NULL || child->rel->relType == TREL_END)
+			child = NULL;
+		else
+			child = child->rel->next;
+	}
+
+	fprintf(stderr, "\n");
+
+	if (curpid > 0)
+	{
+		int status;
+		signal(SIGTTOU, SIG_IGN);
+		tcsetpgrp(0, parentID);
+
+		while((tpid = waitpid(-parentID, &status, WNOHANG | WUNTRACED) ) != -1)
+		{
+			int i;
+			char * str;
+
+			if (tpid == 0)
+				continue;
+
+			i = 0;
+			while (pids[i].pid != tpid)
+				i++;
+			str = getSimpleCmdString(pids[i].cmd);
+
+			if (WIFEXITED(status))
+				fprintf(stderr, "[%d] (%s) was exited, status=%d\n", tpid, str, WEXITSTATUS(status));
+			else if (WIFSIGNALED(status))
+				fprintf(stderr, "[%d] (%s) was killed by signal %d\n", tpid, str, WTERMSIG(status));
+			else if (WIFSTOPPED(status))
+				fprintf(stderr, "[%d] (%s) was stopped by signal %d\n", tpid, str, WSTOPSIG(status));
+
+			free(str);
+		}
+
+		tcsetpgrp(0, prStatus.pgid);
+		signal(SIGTTOU, SIG_DFL);
+	}
+
 	return 0;
 }
 
+/*
+ * Processing input and output redirecting of command.
+ */
 int processRedirectInput(simpleCmd * cmd)
 {
 	if (cmd->rdrInputFile != NULL)

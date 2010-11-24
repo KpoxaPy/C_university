@@ -6,19 +6,27 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <termios.h>
+#include <sys/types.h>
 
 struct programStatus {
-	short parse,
-				quiet,
-				justHelp,
-				justEcho,
-				wideEcho,
-				debug;
+	int parse,
+		quiet,
+		justHelp,
+		justEcho,
+		wideEcho,
+		debug;
+
 	int argc;
 	char ** argv;
 	char ** envp;
+
 	pid_t pid;
 	pid_t pgid;
+
+	struct termios tmodes;
+	int terminal;
+	int isInteractive;
 };
 
 extern struct programStatus prStatus;

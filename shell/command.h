@@ -65,5 +65,6 @@ void genRelation(tCmd *, int, tCmd *);
 void delTCmd(tCmd **);
 void echoCmdTree(tCmd *);
 char * getCmdString(tCmd *);
+char * getSimpleCmdString(simpleCmd *);
 
 #endif

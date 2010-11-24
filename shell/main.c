@@ -1,5 +1,5 @@
-#include <unistd.h>
 #include <getopt.h>
+#include <signal.h>
 #include "main.h"
 #include "run.h"
 #include "echoes.h"
@@ -7,12 +7,18 @@
 
 struct programStatus prStatus;
 
+void initShell(void);
+void initOptions(void);
 void initProgram(int, char **, char **);
+
 void printUsage(void);
+void printDebug(void);
 
 int main (int argc, char ** argv, char ** envp)
 {
 	initProgram(argc, argv, envp);
+
+	printDebug();
 
 	if (prStatus.justHelp)
 	{
@@ -61,27 +67,64 @@ int main (int argc, char ** argv, char ** envp)
 
 void initProgram(int argc, char ** argv, char ** envp)
 {
-	int opt, longOptInd;
-	struct option long_options[] = {
-		{"help", 0, 0, 'h'},
-		{0, 0, 0, 0}
-	};
-
 	prStatus.argc = argc;
 	prStatus.argv = argv;
 	prStatus.envp = envp;
 	prStatus.pgid = getpgrp();
 	prStatus.pid = getpid();
-
 	prStatus.justHelp = 0;
 	prStatus.justEcho = 0;
 	prStatus.wideEcho = 0;
 	prStatus.quiet = 0;
 	prStatus.debug = 0;
 
+	initOptions();
+
+	initShell();
+}
+
+void initShell(void)
+{
+	prStatus.terminal = STDIN_FILENO;
+	prStatus.isInteractive = isatty(prStatus.terminal);
+
+	if (prStatus.isInteractive)
+	{
+		while (tcgetpgrp(prStatus.terminal) != (prStatus.pgid = getpgrp()))
+			kill(-prStatus.pgid, SIGTTIN);
+
+		signal(SIGINT, SIG_IGN);
+		signal(SIGQUIT, SIG_IGN);
+		signal(SIGTSTP, SIG_IGN);
+		signal(SIGTTIN, SIG_IGN);
+		signal(SIGTTOU, SIG_IGN);
+		signal(SIGCHLD, SIG_IGN);
+
+		if (prStatus.pgid != prStatus.pid)
+			if (setpgid(prStatus.pid, prStatus.pgid) < 0)
+			{
+				perror("Counldn't put the shell in its own group");
+				exit(EXIT_FAILURE);
+			}
+
+		tcsetpgrp(prStatus.terminal, prStatus.pgid);
+
+		tcgetattr(prStatus.terminal, &prStatus.tmodes);
+	}
+}
+
+void initOptions(void)
+{
+	int opt, longOptInd;
+	struct option long_options[] = {
+		{"help", 0, 0, 'h'},
+		{0, 0, 0, 0}
+	};
+
 	while (1)
 	{
-		opt = getopt_long(argc, argv, "dehqw", long_options, &longOptInd);
+		opt = getopt_long(prStatus.argc, prStatus.argv,
+			"dehqw", long_options, &longOptInd);
 
 		if (opt == -1)
 			break;
@@ -124,23 +167,11 @@ void initProgram(int argc, char ** argv, char ** envp)
 		}
 	}
 
-	if (optind < argc)
+	if (optind < prStatus.argc)
 	{
-		fprintf(stderr, "%s: too many args\n", argv[0]);
+		fprintf(stderr, "%s: too many args\n", prStatus.argv[0]);
 		printUsage();
 		exit(EXIT_FAILURE);
-	}
-
-	if (prStatus.debug)
-	{
-		if (prStatus.justEcho == 1)
-			printf("Used justEcho option\n");
-		if (prStatus.wideEcho == 1)
-			printf("Used wideEcho option\n");
-		if (prStatus.quiet == 1)
-			printf("Used quiet option\n");
-		if (prStatus.debug == 1)
-			printf("Used debug option\n");
 	}
 }
 
@@ -156,6 +187,21 @@ void printUsage(void)
 
 	fprintf(stderr, "Usage: %s [-dehqw]\n", prStatus.argv[0]);
 	fprintf(stderr, "\n%s", help);
+}
+
+void printDebug(void)
+{
+	if (prStatus.debug)
+	{
+		if (prStatus.justEcho == 1)
+			printf("Used justEcho option\n");
+		if (prStatus.wideEcho == 1)
+			printf("Used wideEcho option\n");
+		if (prStatus.quiet == 1)
+			printf("Used quiet option\n");
+		if (prStatus.debug == 1)
+			printf("Used debug option\n");
+	}
 }
 
 void endWork(int status)

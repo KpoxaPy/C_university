@@ -1,4 +1,3 @@
-#include <unistd.h>
 #include "internals.h"
 /*#include "jobmanager.h"*/
 
