@@ -1,16 +1,18 @@
 VIM_PREFIX = .vim/
-SRCMODULES = buffer.c echoes.c parser/parser.c parser/lexer.c parser/lexlist.c command.c jobmanager.c run.c internals.c
+SRCMODULES = buffer.c echoes.c parser/parser.c parser/lexer.c parser/lexlist.c run/command.c run/jobmanager.c run/run.c run/internals.c
 OBJMODULES = $(SRCMODULES:.c=.o)
 CC = gcc
 CFLAGS = -g -Wall
 SRCFILES = main.c $(SRCMODULES)
+
+CLEANWHERE = *.o parser/*.o run/*.o deps.mk *~
 
 %.o: %.c %.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 shell: main.c $(OBJMODULES)
 	$(CC) $(CFLAGS) $^ -o $@
-	rm -f *.o parser/*.o shell deps.mk *~
+	rm -f $(CLEANWHERE)
 
 #ifneq (clean, $(MAKECMDGOLAS))
 	#-include deps.mk
@@ -23,7 +25,7 @@ run: shell
 	./shell
 
 clean:
-	rm -f *.o parser/*.o shell deps.mk *~
+	rm -f $(CLEANWHERE)
 
 vim:
 
