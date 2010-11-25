@@ -5,6 +5,9 @@
 
 void execCmd(Process *, pid_t, int, int, int, int);
 
+Process * newProcess(void);
+void delProcess(Process **);
+
 
 Job * takeJob()
 {
@@ -32,12 +35,58 @@ Job * newJob(void)
 
 void freeJob(Job * job)
 {
+	Process * p, * tmp;
+
 	if (job == NULL)
 		return;
+
+	p = job->firstProc;
+
+	while (p != NULL)
+	{
+		tmp = p->next;
+		free(p);
+		p = tmp;
+	}
 
 	free(job);
 }
 
+Job * fillJob(Job * job, tCmd * cmd)
+{
+	if (cmd->cmdType == TCMD_SIMPLE)
+	{
+		job->firstProc = newProcess();
+		job->firstProc->cmd = cmd->cmd;
+	
+	}
+	else if (cmd->cmdType == TCMD_PIPE)
+	{
+		tCmd * child = cmd->child;
+		Process * lastp = NULL,
+			* tmp;
+
+		while (child != NULL)
+		{
+			tmp = newProcess();
+			tmp->cmd = child->cmd;
+
+			if (lastp == NULL)
+				job->firstProc = tmp;
+			else
+				lastp->next = tmp;
+
+			lastp = tmp;
+
+			if (child->rel == NULL || child->rel->relType == TREL_END)
+				child = NULL;
+			else
+				child = child->rel->next;
+		}
+	}
+
+	return job;
+}
 
 /*------------------------------------------------------------------------*/
 /*
@@ -150,3 +199,27 @@ void launchJob(Job * j, int foreground)
 }
 
 
+Process * newProcess(void)
+{
+	Process * proc = (Process *)malloc(sizeof(Process));
+
+	if (proc == NULL)
+		return NULL;
+
+	proc->cmd = NULL;
+	proc->pid = 0;
+	proc->retStatus = 0;
+	proc->status = 0;
+	proc->next = NULL;
+
+	return proc;
+}
+
+void delProcess(Process ** proc)
+{
+	if (proc == NULL || *proc == NULL)
+		return;
+
+	free(*proc);
+	*proc = NULL;
+}

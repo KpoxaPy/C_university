@@ -12,7 +12,6 @@
 #define JM_ST_STOPPED 3
 #define JM_ST_COMPLETED 4
 
-typedef int jid_t;
 
 typedef struct managedJob {
 	jid_t jid;
@@ -32,7 +31,7 @@ typedef managedJob mJob;
  *  - adding in manager;
  *  - deleting from manager.
  */
-jid_t addJob(pid_t, Task *);
+jid_t addJob(Task *);
 void delJobByJid(jid_t);
 
 /* Changing the last and the penult jid in the list. */
@@ -40,6 +39,7 @@ void setPenultByLastJid();
 void setLastJid(jid_t);
 
 /* Base executing and control functions */
+void launchJobByJid(jid_t);
 int makeFG(jid_t, int);
 int makeBG(jid_t, int);
 void waitJob(jid_t);

@@ -1,5 +1,93 @@
 #include "task.h"
 
+void goUp(Task *);
+void goDown(Task *);
+void checkRelation(Task *);
+
+
+void goDown(Task * task)
+{
+	if (task == NULL)
+		return;
+
+	switch (task->cur->cmdType)
+	{
+		case TCMD_SCRIPT:
+		case TCMD_LIST:
+			task->cur = task->cur->child;
+			goDown(task);
+			break;
+	}
+}
+
+void goUp(Task * task)
+{
+	while (task->cur->rel->relType != TREL_END)
+		task->cur = task->cur->rel->next;
+	task->cur = task->cur->rel->next;
+	checkRelation(task);
+}
+
+void checkRelation(Task * task)
+{
+	if (task->cur->rel == NULL)
+	{
+		task->cur = NULL;
+		return;
+	}
+
+	switch (task->cur->rel->relType)
+	{
+		case TREL_SCRIPT:
+			task->cur = task->cur->rel->next;
+			goDown(task);
+			break;
+		case TREL_OR:
+			if (task->curRet != 0)
+			{
+				task->cur = task->cur->rel->next;
+				goDown(task);
+			}
+			else
+				goUp(task);
+			break;
+		case TREL_AND:
+			if (task->curRet == 0)
+			{
+				task->cur = task->cur->rel->next;
+				goDown(task);
+			}
+			else
+				goUp(task);
+			break;
+		case TREL_END:
+			goUp(task);
+			break;
+	}
+}
+
+void getNextJob(Task * task)
+{
+	if (task == NULL)
+		return;
+
+	switch (task->cur->cmdType)
+	{
+		case TCMD_SCRIPT:
+		case TCMD_LIST:
+			goDown(task);
+			break;
+		case TCMD_PIPE:
+		case TCMD_SIMPLE:
+			if (!task->firstly)
+				checkRelation(task);
+			else
+				task->firstly = 0;
+			break;
+	}
+}
+
+
 Task * newTask(void)
 {
 	Task * task = (Task *)malloc(sizeof(Task));
@@ -10,10 +98,12 @@ Task * newTask(void)
 	task->root = NULL;
 	task->cur = NULL;
 	task->modeBG = 0;
+	task->curRet = 0;
+	task->curJob = 0;
+	task->firstly = 1;
 
 	return task;
 }
-
 
 void delTask(Task ** task)
 {

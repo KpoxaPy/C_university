@@ -9,6 +9,8 @@
 #include <termios.h>
 #include <sys/types.h>
 
+typedef int jid_t;
+
 struct programStatus {
 	int parse,
 		quiet,

@@ -8,6 +8,7 @@
 #define JM_MES_CONTINUED 2
 #define JM_MES_STOPPED 3
 #define JM_MES_COMPLETED 4
+#define JM_MES_EXIT 5
 
 #define JM_MESTG_IN 0
 #define JM_MESTG_ERR 1
@@ -31,7 +32,8 @@ char * stMessages[] = {
 	"Running",
 	"Continued",
 	"Stopped",
-	"Complited"
+	"Done",
+	"Exit"
 };
 
 mJob * newMJob(void);
@@ -104,6 +106,29 @@ void setPenultByLastJid()
 /*
  * Base executing functions.
  */
+void launchJobByJid(jid_t jid)
+{
+	mJob * j = getJob(jid);
+
+	if (j == NULL)
+		return;
+
+	launchJob(j->job, j->task->modeBG);
+}
+
+void giveTC(mJob * j)
+{
+	tcsetpgrp(prStatus.terminal, j->job->pgid);
+}
+
+void takeBackTC(mJob * j)
+{
+	tcsetpgrp(prStatus.terminal, prStatus.pgid);
+
+	/*tcgetattr(prStatus.terminal, &j->job->tmodes);*/
+	/*tcsetattr(prStatus.terminal, TCSADRAIN, &prStatus.tmodes);*/
+}
+
 int makeFG(jid_t jid, int cont)
 {
 	mJob * j = getJob(jid);
@@ -111,21 +136,18 @@ int makeFG(jid_t jid, int cont)
 	if (j == NULL)
 		return -1;
 
-	tcsetpgrp(prStatus.terminal, j->job->pgid);
-
 	if (cont)
 	{
-		tcsetattr(prStatus.terminal, TCSADRAIN, &j->job->tmodes);
+		/*tcsetattr(prStatus.terminal, TCSADRAIN, &j->job->tmodes);*/
 		if (kill(-j->job->pgid, SIGCONT) < 0)
 			perror("kill (SIGCONT)");
 	}
 
+	giveTC(j);
+
 	waitJob(jid);
 
-	tcsetpgrp(prStatus.terminal, prStatus.pgid);
-
-	tcgetattr(prStatus.terminal, &j->job->tmodes);
-	tcsetattr(prStatus.terminal, TCSADRAIN, &prStatus.tmodes);
+	takeBackTC(j);
 
 	return 1;
 }
@@ -133,6 +155,8 @@ int makeFG(jid_t jid, int cont)
 int makeBG(jid_t jid, int cont)
 {
 	mJob * j = getJob(jid);
+
+	setLastJid(jid);
 
 	if (j == NULL)
 		return -1;
@@ -158,9 +182,14 @@ void waitJob(jid_t jid)
 
 	do
 		pid = waitpid(-j->job->pgid, &status, WUNTRACED);
-	while (markProcessStatus(pid, status) &&
+	while (!markProcessStatus(pid, status) &&
 		!jobIsStopped(j) &&
 		!jobIsCompleted(j));
+
+	if (j->status == JM_ST_STOPPED && j->job->retStatus == SIGSTOP)
+	{
+		makeBG(jid, 0);
+	}
 }
 
 
@@ -189,13 +218,13 @@ mJob * newMJob(void)
 	return job;
 }
 
-jid_t addJob(pid_t pid, Task * task)
+jid_t addJob(Task * task)
 {
 	Job * job = takeJob();
 	mJob * mjob = newMJob();
 
 	mjob->jid = ++(manager.last_jid);
-	mjob->job = job;
+	mjob->job = fillJob(job, task->cur);
 	mjob->task = task;
 
 	mjob->prev = manager.last;
@@ -294,15 +323,10 @@ int markProcessStatus(pid_t pid, int status)
 
 		return -1;
 	}
-	else if (pid == 0 && errno == ECHILD)
-	/* Nothing interesting to renew */
-		return -1;
 	else
+	/* Nothing interesting to renew */
 	/* Something weird happened */
-	{
-		perror("waitpid");
 		return -1;
-	}
 }
 
 int jobIsStopped(mJob * j)
@@ -310,9 +334,13 @@ int jobIsStopped(mJob * j)
 	Process * p;
 
 	for (p = j->job->firstProc; p; p = p->next)
+	{
 		if (p->status != JM_ST_STOPPED &&
 			p->status != JM_ST_COMPLETED)
 			return 0;
+		if (p->next == NULL)
+			j->job->retStatus = p->retStatus;
+	}
 
 	j->status = JM_ST_STOPPED;
 	return 1;
@@ -323,8 +351,12 @@ int jobIsCompleted(mJob * j)
 	Process * p;
 
 	for (p = j->job->firstProc; p; p = p->next)
+	{
 		if (p->status != JM_ST_COMPLETED)
 			return 0;
+		if (p->next == NULL)
+			j->job->retStatus = p->retStatus;
+	}
 
 	j->status = JM_ST_COMPLETED;
 	return 1;
@@ -353,7 +385,12 @@ void checkJobs(void)
 	for (j = manager.first; j; j = j->next)
 		if (j->status == JM_ST_COMPLETED)
 		{
-			echoJob(j, JM_MESTG_ERR, JM_MES_COMPLETED);
+			if (j->job->retStatus != 0)
+				echoJob(j, JM_MESTG_ERR, JM_MES_EXIT);
+			else
+				echoJob(j, JM_MESTG_ERR, JM_MES_COMPLETED);
+			j->task->curRet = j->job->retStatus;
+			j->task->curJob = 0;
 			delJob(j);
 		}
 		else if (j->status == JM_ST_STOPPED && !j->notified)
@@ -457,16 +494,28 @@ void echoJobList(void)
 
 void echoJob(mJob* job, int where, int mes)
 {
-	char format[] = "[%d] %c %d%s %s\n";
+	char format[] = "[%d] %c %d %s\t%s\n";
+	char formatExit[] = "[%d] %c %d %s %d\t%s\n";
 	char order = (job->jid == manager.last_bg_jid ? '+' :
 		(job->jid == manager.penult_bg_jid? '-' :
 		' '));
 	char * command = getCmdString(job->task->cur);
 
-	if (where == 0) /* stdin */
-		printf(format, job->jid, order, job->job->pgid, stMessages[mes], command);
-	else /* stderr */
-		fprintf(stderr, format, job->jid, order, job->job->pgid, stMessages[mes], command);
+	if (mes == JM_MES_EXIT)
+	{
+		if (where == 0) /* stdin */
+			printf(format, job->jid, order, job->job->pgid, stMessages[mes], command);
+		else /* stderr */
+			fprintf(stderr, format, job->jid, order, job->job->pgid, stMessages[mes], command);
+	}
+	else
+	{
+		if (where == 0) /* stdin */
+			printf(formatExit, job->jid, order, job->job->pgid, stMessages[mes], job->job->retStatus, command);
+		else /* stderr */
+			fprintf(stderr, formatExit, job->jid, order, job->job->pgid, stMessages[mes], job->job->retStatus, command);
+	}
+
 
 	free(command);
 }

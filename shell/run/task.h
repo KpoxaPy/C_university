@@ -6,10 +6,15 @@
 
 typedef struct Task {
 	int modeBG;
+	int curRet;
+	jid_t curJob;
+	int firstly;
 
 	tCmd * root;
 	tCmd * cur;
 } Task;
+
+void getNextJob(Task *);
 
 Task * newTask(void);
 void delTask(Task **);

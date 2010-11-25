@@ -358,6 +358,8 @@ void gc()
 				gcInfo.c = EOF;
 			break;
 	}
+
+	printf("{%d}", gcInfo.c);
 }
 
 Lex * consLex(int type, char * str)

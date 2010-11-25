@@ -160,7 +160,6 @@ tCmd * genTCmd(simpleCmd * cmd)
 		return NULL;
 
 	tcmd->cmdType = TCMD_SIMPLE;
-	tcmd->modeBG = 0;
 	tcmd->cmd = cmd;
 	tcmd->child = NULL;
 	tcmd->rel = NULL;
@@ -247,9 +246,8 @@ void echoCmdTreeNode(tCmd * node)
 	if (node == NULL)
 		return;
 
-	echoIndent(); printf("%p: %s %s\n", node,
-		cmdTypeStr[node->cmdType],
-		(node->modeBG ? " BG": ""));
+	echoIndent(); printf("%p: %s\n", node,
+		cmdTypeStr[node->cmdType]);
 	++echoCmdTreeIndentLevel;
 	if (node->cmdType == TCMD_SIMPLE)
 		echoSimpleCmd(node->cmd);

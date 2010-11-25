@@ -5,5 +5,6 @@
 #include "task.h"
 
 void runTask(Task *);
+void checkTasks(void);
 
 #endif

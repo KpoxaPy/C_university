@@ -30,6 +30,8 @@ Job * takeJob(void);
 Job * newJob(void);
 void freeJob(Job *);
 
+Job * fillJob(Job *, tCmd *);
+
 void launchJob(Job *, int);
 
 #endif

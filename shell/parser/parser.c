@@ -5,6 +5,7 @@
 #include "lexer.h"
 #include "lexlist.h"
 #include "../run/command.h"
+#include "../run/task.h"
 
 #define PT_STDIN 0
 #define PT_STRING 1
@@ -240,14 +241,16 @@ Task * pT()
 	if (cmd == NULL)
 		return NULL;
 
+	task = newTask();
+
 	if (cur_l->type == LEX_BG)
 	{
 		if (glhard())
 		{
+			delTask(&task);
 			delTCmd(&cmd);
 			return NULL;
 		}
-		task = newTask();
 		task->modeBG = 1;
 	}
 

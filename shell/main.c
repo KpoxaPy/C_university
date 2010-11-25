@@ -32,6 +32,8 @@ int main (int argc, char ** argv, char ** envp)
 	{
 		Task * task;
 
+		checkTasks();
+
 		echoPromt(PROMT_DEFAULT);
 		prStatus.parse = parse(&task);
 
