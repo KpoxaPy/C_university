@@ -1,3 +1,4 @@
+#include <fcntl.h>
 #include "command.h"
 #include "../stuff/buffer.h"
 
@@ -403,5 +404,29 @@ void putCmdStr(simpleCmd * cmd, struct bufferlist * buf)
 	{
 		addStr(buf, " < ");
 		addStr(buf, cmd->rdrInputFile);
+	}
+}
+
+void genRDRout(simpleCmd * cmd)
+{
+	if (cmd->rdrOutputFile != NULL)
+	{
+		int flags = O_WRONLY | O_CREAT;
+		if (cmd->rdrOutputAppend)
+			flags |= O_APPEND;
+
+		cmd->pFDout = open(cmd->rdrOutputFile, flags, 0660);
+		if (cmd->pFDout == -1)
+			perror("open rdrOutput");
+	}
+}
+
+void genRDRin(simpleCmd * cmd)
+{
+	if (cmd->rdrInputFile != NULL)
+	{
+		cmd->pFDin = open(cmd->rdrInputFile, O_RDONLY);
+		if (cmd->pFDin == -1)
+			perror("open rdrInput");
 	}
 }

@@ -66,4 +66,7 @@ void echoCmdTree(tCmd *);
 char * getCmdString(tCmd *);
 char * getSimpleCmdString(simpleCmd *);
 
+void genRDRin(simpleCmd *);
+void genRDRout(simpleCmd *);
+
 #endif

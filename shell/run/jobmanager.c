@@ -47,6 +47,7 @@ int jobIsCompleted(mJob *);
 /* Periodicaly called functions to take actual
  * information about jobs */
 void updateStatus(void);
+void renewManager(void);
 
 /* Echoing jobs */
 void echoJob(mJob *, int, int);
@@ -113,7 +114,7 @@ void launchJobByJid(jid_t jid)
 	if (j == NULL)
 		return;
 
-	launchJob(j->job, j->task->modeBG);
+	launchJob(j->job, !j->task->modeBG);
 }
 
 void giveTC(mJob * j)
@@ -125,8 +126,8 @@ void takeBackTC(mJob * j)
 {
 	tcsetpgrp(prStatus.terminal, prStatus.pgid);
 
-	/*tcgetattr(prStatus.terminal, &j->job->tmodes);*/
-	/*tcsetattr(prStatus.terminal, TCSADRAIN, &prStatus.tmodes);*/
+	tcgetattr(prStatus.terminal, &j->job->tmodes);
+	tcsetattr(prStatus.terminal, TCSADRAIN, &prStatus.tmodes);
 }
 
 int makeFG(jid_t jid, int cont)
@@ -138,7 +139,7 @@ int makeFG(jid_t jid, int cont)
 
 	if (cont)
 	{
-		/*tcsetattr(prStatus.terminal, TCSADRAIN, &j->job->tmodes);*/
+		tcsetattr(prStatus.terminal, TCSADRAIN, &j->job->tmodes);
 		if (kill(-j->job->pgid, SIGCONT) < 0)
 			perror("kill (SIGCONT)");
 	}
@@ -185,6 +186,8 @@ void waitJob(jid_t jid)
 	while (!markProcessStatus(pid, status) &&
 		!jobIsStopped(j) &&
 		!jobIsCompleted(j));
+
+	printf("J STATUS %d RETSTATUS %d\n", j->status, j->job->retStatus);
 
 	if (j->status == JM_ST_STOPPED && j->job->retStatus == SIGSTOP)
 	{
@@ -335,11 +338,11 @@ int jobIsStopped(mJob * j)
 
 	for (p = j->job->firstProc; p; p = p->next)
 	{
-		if (p->status != JM_ST_STOPPED &&
-			p->status != JM_ST_COMPLETED)
-			return 0;
 		if (p->next == NULL)
 			j->job->retStatus = p->retStatus;
+		if (p->status != JM_ST_STOPPED &&
+			p->status != JM_ST_COMPLETED)
+		return 0;
 	}
 
 	j->status = JM_ST_STOPPED;
@@ -352,10 +355,10 @@ int jobIsCompleted(mJob * j)
 
 	for (p = j->job->firstProc; p; p = p->next)
 	{
-		if (p->status != JM_ST_COMPLETED)
-			return 0;
 		if (p->next == NULL)
 			j->job->retStatus = p->retStatus;
+		if (p->status != JM_ST_COMPLETED)
+			return 0;
 	}
 
 	j->status = JM_ST_COMPLETED;
@@ -376,11 +379,9 @@ void updateStatus(void)
 	while (!markProcessStatus(pid, status));
 }
 
-void checkJobs(void)
+void renewManager()
 {
 	mJob *j;
-
-	updateStatus();
 
 	for (j = manager.first; j; j = j->next)
 		if (j->status == JM_ST_COMPLETED)
@@ -407,6 +408,13 @@ void checkJobs(void)
 			}
 			j->status = JM_ST_RUNNING;
 		}
+}
+
+void checkJobs(void)
+{
+	updateStatus();
+
+	renewManager();
 }
 
 

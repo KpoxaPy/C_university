@@ -54,6 +54,7 @@ void checkRelation(Task * task)
 		case TREL_AND:
 			if (task->curRet == 0)
 			{
+				fprintf(stderr, "IN AND Getted %d\n", task->curRet);
 				task->cur = task->cur->rel->next;
 				goDown(task);
 			}
@@ -68,7 +69,7 @@ void checkRelation(Task * task)
 
 void getNextJob(Task * task)
 {
-	if (task == NULL)
+	if (task == NULL || task->cur == NULL)
 		return;
 
 	switch (task->cur->cmdType)
@@ -81,10 +82,11 @@ void getNextJob(Task * task)
 		case TCMD_SIMPLE:
 			if (!task->firstly)
 				checkRelation(task);
-			else
-				task->firstly = 0;
 			break;
 	}
+
+	if (task->firstly)
+		task->firstly = 0;
 }
 
 

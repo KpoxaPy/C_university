@@ -75,7 +75,7 @@ void delMTask(mTask ** task)
 
 	delTask(&((*task)->task));
 	free(*task);
-	/**task == NULL;*/
+	*task = NULL;
 }
 
 

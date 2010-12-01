@@ -133,7 +133,7 @@ void execCmd(Process * p, pid_t pgid,
 	}
 
 	execvp(p->cmd->file, p->cmd->argv);
-	perror("exevp");
+	perror("execvp");
 	exit(EXIT_FAILURE);
 }
 
@@ -145,8 +145,22 @@ void launchJob(Job * j, int foreground)
 
 	infile = j->stdin;
 
+	if (j->firstProc)
+	{
+		genRDRin(j->firstProc->cmd);
+		if (j->firstProc->cmd->pFDin != -1)
+			infile = j->firstProc->cmd->pFDin;
+	}
+
 	for (p = j->firstProc; p; p = p->next)
 	{
+		if (prStatus.debug)
+		{	
+			char * str = getSimpleCmdString(p->cmd);
+			fprintf(stderr, "Running %s\n", str);
+			free(str);
+		}
+		
 		/* Set up pipes, if need */
 		if (p->next)
 		{
@@ -158,13 +172,18 @@ void launchJob(Job * j, int foreground)
 			outfile = pipev[1];
 		}
 		else
-			outfile = j->stdin;
+		{
+			outfile = j->stdout;
+			genRDRout(p->cmd);
+			if (p->cmd->pFDout != -1)
+				outfile = p->cmd->pFDout;
+		}
 
 		/* make child :) */
 		if ((pid = fork()) == 0)
 		/* baby */
 			execCmd(p, j->pgid,
-				infile, j->stderr, outfile,
+				infile, outfile, j->stderr,
 				foreground);
 		else if (pid > 0)
 		{ /* happy parent */
@@ -188,14 +207,6 @@ void launchJob(Job * j, int foreground)
 			close(outfile);
 		infile = pipev[0];
 	}
-
-
-	/*if (!prStatus.isInteractive)*/
-		/*waitJob(j->jid);*/
-	/*else if (foreground)*/
-		/*makeFG(j->jid, 0);*/
-	/*else*/
-		/*makeBG(j->jid, 0);*/
 }
 
 
