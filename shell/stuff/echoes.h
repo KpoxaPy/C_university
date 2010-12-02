@@ -16,4 +16,6 @@ void echoError(int);
 void echoParserError(void);
 void echoLexerError(void);
 
+int debug(char *, ...);
+
 #endif

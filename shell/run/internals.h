@@ -12,10 +12,8 @@ int checkInternalCommands(simpleCmd *);
 
 int runExit();
 int runCD(simpleCmd *);
-/*
- *int runJobs(simpleCmd *);
- *int runJobsBG(simpleCmd *);
- *int runJobsFG(simpleCmd *);
- */
+int runJobs(simpleCmd *);
+int runJobsBG(simpleCmd *);
+int runJobsFG(simpleCmd *);
 
 #endif

@@ -103,10 +103,12 @@ void execCmd(Process * p, pid_t pgid,
 		pid = getpid();
 		if (pgid == 0)
 			pgid = pid;
-		setpgid(pid, pgid);
+		if (setpgid(pid, pgid))
+			perror("setpgid");
 
 		if (foreground)
-			tcsetpgrp(prStatus.terminal, pgid);
+			if (tcsetpgrp(prStatus.terminal, pgid))
+				perror("tcsetpgrp");
 
 		signal (SIGINT, SIG_DFL);
 		signal (SIGQUIT, SIG_DFL);

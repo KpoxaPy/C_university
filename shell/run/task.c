@@ -1,3 +1,4 @@
+#include "../stuff/echoes.h"
 #include "task.h"
 
 void goUp(Task *);
@@ -43,6 +44,7 @@ void checkRelation(Task * task)
 			goDown(task);
 			break;
 		case TREL_OR:
+			debug("IN OR Getted %d\n", task->curRet);
 			if (task->curRet != 0)
 			{
 				task->cur = task->cur->rel->next;
@@ -52,9 +54,9 @@ void checkRelation(Task * task)
 				goUp(task);
 			break;
 		case TREL_AND:
+			debug("IN AND Getted %d\n", task->curRet);
 			if (task->curRet == 0)
 			{
-				fprintf(stderr, "IN AND Getted %d\n", task->curRet);
 				task->cur = task->cur->rel->next;
 				goDown(task);
 			}

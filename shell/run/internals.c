@@ -1,5 +1,5 @@
 #include "internals.h"
-/*#include "jobmanager.h"*/
+#include "jobmanager.h"
 
 int checkInternalCommands(simpleCmd * cmd)
 {
@@ -11,14 +11,12 @@ int checkInternalCommands(simpleCmd * cmd)
 			status = runExit();
 		else if (strcmp(cmd->file, "cd") == 0)
 			status = runCD(cmd);
-		/*
-		 *else if (strcmp(cmd->file, "jobs") == 0)
-		 *  status = runJobs(cmd);
-		 *else if (strcmp(cmd->file, "bg") == 0)
-		 *  status = runJobsBG(cmd);
-		 *else if (strcmp(cmd->file, "fg") == 0)
-		 *  status = runJobsFG(cmd);
-		 */
+		else if (strcmp(cmd->file, "jobs") == 0)
+			status = runJobs(cmd);
+		else if (strcmp(cmd->file, "bg") == 0)
+			status = runJobsBG(cmd);
+		else if (strcmp(cmd->file, "fg") == 0)
+			status = runJobsFG(cmd);
 	}
 
 	return status;
@@ -59,40 +57,49 @@ int runCD(simpleCmd * cmd)
 }
 
 
-/*
- *int runJobs(simpleCmd * cmd)
- *{
- *  if (cmd->argc == 1)
- *    echoJobList();
- *  else
- *    printf("Too many args!\n");
- *
- *  return INTERNAL_COMMAND_CONTINUE;
- *}
- *
- *int runJobsBG(simpleCmd * cmd)
- *{
- *  if (cmd->argc == 2)
- *  {
- *    jid_t jid = atoi(cmd->argv[1]);
- *    if (jid > 0)
- *      setLastJid(jid);
- *  }
- *
- *  return INTERNAL_COMMAND_CONTINUE;
- *}
- *
- *int runJobsFG(simpleCmd * cmd)
- *{
- *  if (cmd->argc == 2)
- *  {
- *    jid_t jid = atoi(cmd->argv[1]);
- *    if (jid > 0)
- *      makeFG(jid, NULL);	
- *  }
- *  else if (cmd->argc > 2)
- *    printf("Too many args!\n");
- *
- *  return INTERNAL_COMMAND_CONTINUE;
- *}
- */
+int runJobs(simpleCmd * cmd)
+{
+	if (cmd->argc == 1)
+	{
+		echoJobList();
+		return INTERNAL_COMMAND_SUCCESS;
+	}
+	else
+	{
+		fprintf(stderr, "Too many args!\n");
+		return INTERNAL_COMMAND_FAILURE;
+	}
+}
+
+int runJobsBG(simpleCmd * cmd)
+{
+	if (cmd->argc == 2)
+	{
+		jid_t jid = atoi(cmd->argv[1]);
+		if (jid > 0)
+			makeBG(jid, 1);
+	}
+
+	return INTERNAL_COMMAND_SUCCESS;
+}
+
+int runJobsFG(simpleCmd * cmd)
+{
+	if (cmd->argc == 2)
+	{
+		jid_t jid = atoi(cmd->argv[1]);
+		if (jid > 0)
+			makeFG(jid, 1);
+	}
+	else if (cmd->argc == 1)
+	{
+		
+	}
+	else
+	{
+		fprintf(stderr, "Too many args!\n");
+		return INTERNAL_COMMAND_FAILURE;
+	}
+
+	return INTERNAL_COMMAND_SUCCESS;
+}

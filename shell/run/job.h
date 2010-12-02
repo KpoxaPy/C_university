@@ -21,7 +21,6 @@ typedef struct job {
 
 	int retStatus;
 
-	struct termios tmodes;
 	int stdin, stdout, stderr;
 } Job;
 

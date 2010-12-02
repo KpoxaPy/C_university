@@ -2,6 +2,7 @@
 #define _BGMANAGER_H_
 
 #include "../main.h"
+#include "../stuff/echoes.h"
 #include "task.h"
 #include "run.h"
 #include "job.h"

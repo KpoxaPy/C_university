@@ -3,7 +3,9 @@
 
 #include "../main.h"
 #include "task.h"
+#include "internals.h"
 
+int checkInternalTask(Task *);
 void runTask(Task *);
 void checkTasks(void);
 

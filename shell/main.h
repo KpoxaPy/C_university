@@ -26,7 +26,6 @@ struct programStatus {
 	pid_t pid;
 	pid_t pgid;
 
-	struct termios tmodes;
 	int terminal;
 	int isInteractive;
 };

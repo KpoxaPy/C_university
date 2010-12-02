@@ -3,7 +3,6 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include "run.h"
-#include "internals.h"
 #include "jobmanager.h"
 
 typedef struct managedTask {
@@ -28,6 +27,23 @@ void remTask(mTask *);
 
 mTask * findTaskByJid(jid_t);
 
+int checkInternalTask(Task * task)
+{
+	int status;
+
+	if (task == NULL ||
+		task->root == NULL ||
+		task->root->cmdType != TCMD_SIMPLE ||
+		task->root->cmd == NULL)
+		return INTERNAL_COMMAND_CONTINUE;
+
+	status = checkInternalCommands(task->root->cmd);
+
+	if (status != INTERNAL_COMMAND_CONTINUE)
+		delTask(&task);
+
+	return status;
+}
 
 void runTask(Task * task)
 {
@@ -138,9 +154,11 @@ void checkTasks()
 		{
 			getNextJob(t);
 			if (t->cur != NULL)
+			/* If task doesn't end */
 			{
 				t->curJob = addJob(t);
 				launchJobByJid(t->curJob);
+				makeBG(t->curJob, 0);
 			}
 		}
 
@@ -156,6 +174,7 @@ void checkTasks()
 	while (task != NULL && task->task->modeBG)
 		task = task->next;
 
+	/* If foreground task found */
 	if (task != NULL)
 	{
 		t = task->task;
@@ -167,6 +186,8 @@ void checkTasks()
 			t->curJob = addJob(t);
 			launchJobByJid(t->curJob);
 			makeFG(t->curJob, 0);
+			if (t->modeBG)
+				break;
 			getNextJob(t);
 		}
 	}

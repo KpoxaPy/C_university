@@ -16,6 +16,9 @@ void printDebug(void);
 
 int main (int argc, char ** argv, char ** envp)
 {
+	Task * task;
+	int inStatus;
+
 	initProgram(argc, argv, envp);
 
 	printDebug();
@@ -30,8 +33,6 @@ int main (int argc, char ** argv, char ** envp)
 
 	for(;;)
 	{
-		Task * task;
-
 		checkTasks();
 
 		echoPromt(PROMT_DEFAULT);
@@ -44,7 +45,12 @@ int main (int argc, char ** argv, char ** envp)
 			else if (prStatus.justEcho && prStatus.wideEcho)
 				echoTaskWide(task);
 			else
-				runTask(task);
+			{
+				inStatus = checkInternalTask(task);
+
+				if (inStatus == INTERNAL_COMMAND_CONTINUE)
+					runTask(task);
+			}
 		}
 		else if (prStatus.parse == PS_ERROR)
 		{
@@ -91,12 +97,11 @@ void initShell(void)
 		while (tcgetpgrp(prStatus.terminal) != (prStatus.pgid = getpgrp()))
 			kill(-prStatus.pgid, SIGTTIN);
 
-		signal(SIGINT, SIG_IGN);
-		signal(SIGQUIT, SIG_IGN);
+		/*signal(SIGINT, SIG_IGN);*/
+		/*signal(SIGQUIT, SIG_IGN);*/
 		signal(SIGTSTP, SIG_IGN);
 		signal(SIGTTIN, SIG_IGN);
 		signal(SIGTTOU, SIG_IGN);
-		signal(SIGCHLD, SIG_IGN);
 
 		if (prStatus.pgid != prStatus.pid)
 			if (setpgid(prStatus.pid, prStatus.pgid) < 0)
@@ -106,8 +111,6 @@ void initShell(void)
 			}
 
 		tcsetpgrp(prStatus.terminal, prStatus.pgid);
-
-		tcgetattr(prStatus.terminal, &prStatus.tmodes);
 	}
 }
 

@@ -1,3 +1,4 @@
+#include <stdarg.h>
 #include "echoes.h"
 #include "../parser/parser.h"
 #include "../parser/lexer.h"
@@ -104,4 +105,20 @@ void echoErrorLex(void)
 
 void echoErrorSymbol(void)
 {
+}
+
+
+int debug(char * fmt, ...)
+{
+	va_list ap;
+	int ret;
+
+	if (!prStatus.debug)
+		return 0;
+
+	va_start(ap, fmt);
+	ret = vfprintf(stderr, fmt, ap);
+	va_end(ap);
+
+	return ret;
 }
