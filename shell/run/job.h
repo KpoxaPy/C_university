@@ -32,5 +32,6 @@ void freeJob(Job *);
 Job * fillJob(Job *, tCmd *);
 
 void launchJob(Job *, int);
+void killJob(Job *);
 
 #endif
