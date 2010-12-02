@@ -1,7 +1,7 @@
 #ifndef _WORDS_H_
 #define _WORDS_H_
 
-#include "main.h"
+#include "../main.h"
 
 struct word {
 	char * str;
@@ -16,6 +16,7 @@ struct wordlist {
 };
 
 
+void initWordList(struct wordlist *);
 void clearWordList(struct wordlist *);
 void echoWordList(struct wordlist *);
 void addWord(struct wordlist *, char *);
