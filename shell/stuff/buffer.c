@@ -1,5 +1,19 @@
 #include "buffer.h"
 
+struct bufferlist * newBuffer()
+{
+	struct bufferlist * buf;
+
+	buf = (struct bufferlist *)malloc(sizeof(struct bufferlist));
+	if (buf != NULL)
+	{
+		buf->first = buf->last = NULL;
+		buf->count = 0;
+	}
+
+	return buf;
+}
+
 void addChar(struct bufferlist * buffer, char c)
 {
 	if (buffer->last == NULL)
@@ -10,6 +24,45 @@ void addChar(struct bufferlist * buffer, char c)
 	buffer->last->str[buffer->last->count + 1] = '\0';
 	++buffer->last->count;
 	++buffer->count;
+}
+
+void addStr(struct bufferlist * buffer, char * str)
+{
+	if (str == NULL || buffer == NULL)
+		return;
+
+	while (*str != '\0')
+		addChar(buffer, *str++);
+}
+
+int getChar(struct bufferlist * buffer)
+{
+	char c;
+
+	if (buffer->count == 0)
+		return EOF;
+	else
+	{
+		c = buffer->last->str[buffer->last->count - 1];
+		buffer->last->str[buffer->last->count - 1] = '\0';
+
+		--buffer->last->count;
+		--buffer->count;
+
+		if (buffer->last->count == 0)
+		{
+			struct buffer * toRem = buffer->last;
+
+			if (buffer->count != 0)
+				buffer->last = toRem->prev;
+			else
+				buffer->last = buffer->first = NULL;
+
+			free(toRem);
+		}
+	}
+	
+	return c;
 }
 
 void clearBuffer(struct bufferlist * buffer)
@@ -61,12 +114,14 @@ void extendBuffer(struct bufferlist * buffer)
 	if (buffer->first == NULL)
 	{
 		tmp->next = NULL;
+		tmp->prev = NULL;
 		buffer->first = tmp;
 		buffer->last = tmp;
 	}
 	else
 	{
 		tmp->next = buffer->last->next;
+		tmp->prev = buffer->last;
 		buffer->last->next = tmp;
 		buffer->last = tmp;
 	}
