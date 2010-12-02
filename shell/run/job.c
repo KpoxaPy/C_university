@@ -236,3 +236,11 @@ void delProcess(Process ** proc)
 	free(*proc);
 	*proc = NULL;
 }
+
+void killJob(Job * j)
+{
+	if (j == NULL)
+		return;
+
+	kill(-j->pgid, SIGKILL);
+}

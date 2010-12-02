@@ -536,3 +536,13 @@ void echoJob(mJob* job, int where, int mes)
 }
 
 
+void killAllJobs()
+{
+	mJob * job = manager.first;
+
+	while (job != NULL)
+	{
+		killJob(job->job);
+		job = job->next;
+	}
+}

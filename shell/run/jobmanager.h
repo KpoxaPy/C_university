@@ -45,6 +45,8 @@ int makeFG(jid_t, int);
 int makeBG(jid_t, int);
 void waitJob(jid_t);
 
+void killAllJobs();
+
 /* Periodicaly called functions to take actual
  * information about jobs */
 void checkJobs(void);

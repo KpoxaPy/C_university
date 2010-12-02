@@ -2,6 +2,7 @@
 #include <signal.h>
 #include "main.h"
 #include "run/run.h"
+#include "run/jobmanager.h"
 #include "stuff/echoes.h"
 #include "parser/parser.h"
 
@@ -97,7 +98,7 @@ void initShell(void)
 		while (tcgetpgrp(prStatus.terminal) != (prStatus.pgid = getpgrp()))
 			kill(-prStatus.pgid, SIGTTIN);
 
-		/*signal(SIGINT, SIG_IGN);*/
+		signal(SIGINT, SIG_IGN);
 		/*signal(SIGQUIT, SIG_IGN);*/
 		signal(SIGTSTP, SIG_IGN);
 		signal(SIGTTIN, SIG_IGN);
@@ -207,5 +208,6 @@ void printDebug(void)
 
 void endWork(int status)
 {
+	killAllJobs();
 	exit(status);
 }
