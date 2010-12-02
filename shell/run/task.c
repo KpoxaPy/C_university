@@ -1,5 +1,6 @@
 #include "../stuff/echoes.h"
 #include "task.h"
+#include "jobmanager.h"
 
 void goUp(Task *);
 void goDown(Task *);
@@ -129,6 +130,21 @@ void echoTask(Task * task)
 	printf("%s%s\n", str, (task->modeBG ? " &" : ""));
 	free(str);
 }
+
+void echoTaskStatus(Task * task, int mes)
+{
+	char format[] = "%s\t%s\n";
+	char formatExit[] = "%s %d\t%s\n";
+	char * command = getCmdString(task->root);
+
+	if (mes == JM_MES_EXIT)
+		fprintf(stderr, formatExit, stMessages[JM_MES_EXIT], task->curRet, command);
+	else
+		fprintf(stderr, format, stMessages[mes], command);
+
+	free(command);
+}
+
 
 void echoTaskWide(Task * task)
 {

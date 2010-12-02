@@ -86,8 +86,24 @@ mTask * newMTask(void)
 
 void delMTask(mTask ** task)
 {
+	mTask * c, * p;
+
 	if (task == NULL || *task == NULL)
 		return;
+
+	c = tman.first;
+	p = NULL;
+
+	while (c != *task)
+	{
+		p = c;
+		c = c->next;
+	}
+
+	if (p != NULL)
+		p->next = c->next;
+	else
+		tman.first = c->next;
 
 	delTask(&((*task)->task));
 	free(*task);
@@ -160,6 +176,19 @@ void checkTasks()
 				launchJobByJid(t->curJob);
 				makeBG(t->curJob, 0);
 			}
+			else
+			/* otherwise */
+			{
+				mTask * tmp;
+				tmp = task->next;
+
+				echoTaskStatus(t, (t->curRet != 0 ? JM_MES_EXIT : JM_MES_COMPLETED));
+				delMTask(&task);
+
+				if (tmp == NULL)
+					break;
+				task = tmp;
+			}
 		}
 
 		task = task->next;
@@ -190,6 +219,12 @@ void checkTasks()
 				break;
 			getNextJob(t);
 		}
+		/* If task went into BG */
+		if (t->modeBG)
+			; /* Do nothing */
+		/* or was ended */
+		else
+			delMTask(&task);
 	}
 
 	checkJobs();

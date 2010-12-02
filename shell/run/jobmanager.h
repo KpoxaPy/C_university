@@ -13,6 +13,12 @@
 #define JM_ST_STOPPED 3
 #define JM_ST_COMPLETED 4
 
+#define JM_MES_NONE 0
+#define JM_MES_RUNNING 1
+#define JM_MES_CONTINUED 2
+#define JM_MES_STOPPED 3
+#define JM_MES_COMPLETED 4
+#define JM_MES_EXIT 5
 
 typedef struct managedJob {
 	jid_t jid;
@@ -27,6 +33,8 @@ typedef struct managedJob {
 } managedJob;
 
 typedef managedJob mJob;
+
+extern char *stMessages[];
 
 /* Managing jobs:
  *  - adding in manager;

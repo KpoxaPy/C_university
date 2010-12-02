@@ -67,6 +67,7 @@ int main (int argc, char ** argv, char ** envp)
 
 	clearParser();
 
+	endWork(EXIT_SUCCESS);
 	return EXIT_SUCCESS;
 }
 
@@ -99,7 +100,6 @@ void initShell(void)
 			kill(-prStatus.pgid, SIGTTIN);
 
 		signal(SIGINT, SIG_IGN);
-		/*signal(SIGQUIT, SIG_IGN);*/
 		signal(SIGTSTP, SIG_IGN);
 		signal(SIGTTIN, SIG_IGN);
 		signal(SIGTTOU, SIG_IGN);

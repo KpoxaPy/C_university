@@ -20,6 +20,7 @@ Task * newTask(void);
 void delTask(Task **);
 
 void echoTask(Task *);
+void echoTaskStatus(Task *, int);
 void echoTaskWide(Task *);
 
 #endif
