@@ -7,8 +7,7 @@
 
 struct programStatus cfg;
 
-void initServer(void);
-void daemonizeServer(void);
+void daemonize(void);
 void initLogging(void);
 void initOptions(void);
 void initProgram(int, char **, char **);
@@ -53,18 +52,13 @@ void initProgram(int argc, char ** argv, char ** envp)
 	printHelp();
 	printVersion();
 
-	initServer();
-}
-
-void initServer()
-{
 	signal(SIGINT, mySignal);
 
-	daemonizeServer();
+	daemonize();
 	initLogging();
 }
 
-void daemonizeServer()
+void daemonize()
 {
 	int fd;
 	struct rlimit flim;
