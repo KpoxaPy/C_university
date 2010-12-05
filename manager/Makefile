@@ -8,10 +8,10 @@ CLEANWHERE = ${SRC}stuff/*.o ${SRC}server/*.o
 
 # Server part
 
-SERVER_SRC = ${SRC}server/echoes.c
+SERVER_SRC = ${SRC}server/echoes.c ${SRC}server/getopt1.c ${SRC}server/server.c
 SERVER_OBJ = $(SERVER_SRC:.c=.o)
 
-server: ${SRC}server/server.c $(SERVER_OBJ)
+server: ${SRC}server/main.c $(SERVER_OBJ)
 	$(CC) $(CFLAGS) $^ -o $@
 	rm -f $(CLEANWHERE)
 
