@@ -45,7 +45,7 @@ void checkRelation(Task * task)
 			goDown(task);
 			break;
 		case TREL_OR:
-			debug("IN OR Getted %d\n", task->curRet);
+			debug("IN OR got %d\n", task->curRet);
 			if (task->curRet != 0)
 			{
 				task->cur = task->cur->rel->next;
@@ -55,7 +55,7 @@ void checkRelation(Task * task)
 				goUp(task);
 			break;
 		case TREL_AND:
-			debug("IN AND Getted %d\n", task->curRet);
+			debug("IN AND got %d\n", task->curRet);
 			if (task->curRet == 0)
 			{
 				task->cur = task->cur->rel->next;
