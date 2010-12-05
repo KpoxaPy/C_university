@@ -174,6 +174,11 @@ void initOptions(void)
 		exit(EXIT_FAILURE);
 	}
 
+	/* When used information argument which leads just echoing
+	 * we don't need in strong testing */
+	if (cfg.help || cfg.version)
+		return;
+
 	/* If we will daemonize server we need to echoing in syslog */
 	if (cfg.daemon && !cfg.syslog)
 		cfg.syslog = 1;
@@ -216,7 +221,7 @@ void printVersion()
 	if (cfg.version)
 	{
 		printAbout();
-		endWork(EXIT_SUCCESS);
+		exit(EXIT_SUCCESS);
 	}
 }
 
@@ -233,7 +238,7 @@ void printDebug()
 
 		debug("Server port: %d\n", cfg.port);
 
-		debug("Passkey is \"%s\"\n", cfg.passkey);
+		debug("Passkey: \"%s\"\n", cfg.passkey);
 	}
 }
 
@@ -242,7 +247,7 @@ void printHelp()
 	if (cfg.help)
 	{
 		printManual();
-		endWork(EXIT_SUCCESS);
+		exit(EXIT_SUCCESS);
 	}
 }
 
@@ -258,8 +263,16 @@ void printAbout()
 
 void printUsage()
 {
-	info("Usage: %s [-sdhv] -p [4m[22mport[0m\n", cfg.argv[0]);
+	info("Usage: %s [-sdhv] -p [4m[22mport[0m [--key [4m[22mpasskey[0m]\n", cfg.argv[0]);
 }
+
+
+/*------------------------------------------------------------------*/
+/*                        Manual section                            */
+/*------------------------------------------------------------------*/
+
+char * manualServerMode(void);
+char * manualAdministration(void);
 
 void printManual()
 {
@@ -272,10 +285,28 @@ void printManual()
 		"  -h, --help		     just output this message\n"
 		"  -v, --version		     print version\n"
 		"  --syslog		     use syslog for echoing\n"
-		"\n"
+		"  --key [4m[22mpasskey[0m		     set passkey for remote administration\n";
+
+	printUsage();
+	info("\n%s\n%s\n%s", help, manualServerMode(), manualAdministration());
+}
+
+char * manualServerMode()
+{
+	static char ret[] =
 		"SERVER MODE\n"
 		"When game server is in server mode it can be switched off by sending signal SIGINT.\n";
 
-	printUsage();
-	info("\n%s", help);
+	 return ret;
+}
+
+char * manualAdministration()
+{
+	static char ret[] =
+		"ADMINISTRATION\n"
+		"There is available remote administration. To get this capabilities you should know [4m[22mpasskey[0m.\n"
+		"\n"
+		"Passkey is setting when server is running or if it did't set this way it'll is set into default value \"" DEFAULT_PASSKEY "\".\n";
+
+	 return ret;
 }
