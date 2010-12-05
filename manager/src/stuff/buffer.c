@@ -1,3 +1,6 @@
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
 #include "buffer.h"
 
 struct bufferlist * newBuffer()

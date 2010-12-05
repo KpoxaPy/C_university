@@ -29,6 +29,6 @@ extern struct programStatus cfg;
 
 void endWork(int);
 
-#include "stuff/echoes.h"
+#include "echoes.h"
 
 #endif
