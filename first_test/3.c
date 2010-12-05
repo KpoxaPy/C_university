@@ -49,7 +49,7 @@ int main()
 
   while ((c = getchar()) != EOF)
     addNum(&list, c);
-  
+
   printList(list);
 
   return 0;
