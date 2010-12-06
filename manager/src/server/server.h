@@ -3,4 +3,7 @@
 
 #include "main.h"
 
+void initServer(void);
+void shutdownServer(void);
+
 #endif

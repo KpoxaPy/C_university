@@ -1,9 +1,8 @@
 #include <signal.h>
-#include <unistd.h>
 #include <sys/resource.h>
-#include <syslog.h>
 #include "main.h"
 #include "getopt1.h"
+#include "server.h"
 
 struct programStatus cfg;
 
@@ -17,7 +16,7 @@ int main (int argc, char ** argv, char ** envp)
 	initProgram(argc, argv, envp);
 
 	for(;;)
-		;
+		sleep(10);
 
 	endWork(EXIT_SUCCESS);
 	return EXIT_SUCCESS;
@@ -47,6 +46,8 @@ void initProgram(int argc, char ** argv, char ** envp)
 
 	daemonize();
 	initLogging();
+
+	initServer();
 }
 
 void daemonize()
@@ -79,7 +80,11 @@ void daemonize()
 
 void endWork(int status)
 {
-	info("Server is switching off. Thanks for using!\n");
+	shutdownServer();
+	if (status == EXIT_SUCCESS)
+		info("Server is switching off. Thanks for using!\n");
+	else
+		error("Server made fatal error. Aborting by problem.\n");
 	exit(status);
 }
 
