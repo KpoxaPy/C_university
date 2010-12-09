@@ -18,6 +18,8 @@ typedef struct managedGame {
 typedef struct player {
 	int fd;
 	int pid;
+	char * nick;
+	char * dummynick;
 
 	Buffer * buf;
 	struct game * game;
@@ -33,7 +35,7 @@ void remGame(Game *);
 
 Player * newPlayer(int);
 void remPlayer(Player *);
-void freePlayer(Player *);
+char * getNickname(Player *);
 
 void fetchData(Player *);
 void checkPlayerOnCommand(Player *);

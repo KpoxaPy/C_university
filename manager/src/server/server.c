@@ -23,19 +23,6 @@ void handleServerEvent(Message *);
 void handleGameEvent(Game *, Message *);
 void handlePlayerEvent(Player *, Message *);
 
-mGame * addGame(Game *);
-void delGame(Game *);
-void freeGame(Game *);
-
-mPlayer * addNilPlayer(Player *);
-mPlayer * addPlayer(Game *, Player *);
-void delNilPlayer(Player * );
-void delPlayer(Player *);
-void freePlayer(Player *);
-
-void IntoGame(Game *, Player *);
-void IntoNil(Player *);
-
 void acceptPlayer();
 
 void initServer()
@@ -329,13 +316,15 @@ void acceptPlayer()
 	}
 
 	p = newPlayer(fd);
-	p->pid = ++srv.nextPid;
+	p->pid = srv.nextPid++;
 	addNilPlayer(p);
 
-	mes.rcvr_t = RCVR_SERVER;
+	mes.sndr_t = O_PLAYER;
+	mes.sndr.player = p;
+	mes.rcvr_t = O_SERVER;
 	mes.type = MEST_PLAYER_JOIN_SERVER;
 	mes.len = 0;
-	mes.data = p;
+	mes.data = NULL;
 	sendMessage(&mes);
 }
 
@@ -382,6 +371,15 @@ void pollServer()
 
 void checkCommands()
 {
+	mGame * gm;
+	mPlayer * pm;
+
+	for (pm = srv.players; pm; pm = pm->next)
+		checkPlayerOnCommand(pm->player);
+
+	for (gm = srv.games; gm; gm = gm->next)
+		for (pm = gm->game->players; pm; pm = pm->next)
+			checkPlayerOnCommand(pm->player);
 }
 
 void processEvents()
@@ -392,29 +390,40 @@ void processEvents()
 	{
 		getMessage(&mes);
 
-		if (mes.rcvr_t == RCVR_SERVER)
+		if (mes.rcvr_t == O_SERVER)
 			handleServerEvent(&mes);
-		else if (mes.rcvr_t == RCVR_GAME)
+		else if (mes.rcvr_t == O_GAME)
 			handleGameEvent(mes.rcvr.game, &mes);
-		else if (mes.rcvr_t == RCVR_PLAYER)
+		else if (mes.rcvr_t == O_PLAYER)
 			handlePlayerEvent(mes.rcvr.player, &mes);
 	}
 }
 
 void handleServerEvent(Message * mes)
 {
-	Player * p;
+	Player * p = mes->sndr.player;
+	char * nick = getNickname(p);
 
 	switch(mes->type)
 	{
 		case MEST_PLAYER_JOIN_SERVER:
-			p = (Player *)(mes->data);
-			info("Player %d join to server\n", p->pid);
+			info("%s join to server\n", nick);
 			break;
 		case MEST_PLAYER_LEAVE_SERVER:
-			p = (Player *)(mes->data);
-			info("Player %d leave server\n", p->pid);
+			info("%s leave server\n", nick);
 			freePlayer(p);
+			break;
+		case MEST_COMMAND_UNKNOWN:
+			info("%s send unknown command and will disconnected\n", nick);
+			freePlayer(p);
+			break;
+		case MEST_COMMAND_NICK:
+			info("%s sets nick into %s\n", nick, mes->data);
+			p->nick = mes->data;
+			break;
+		case MEST_COMMAND_JOIN:
+			info("%s joins %d game\n", nick, *(int *)(mes->data));
+			free(mes->data);
 			break;
 	}
 
@@ -423,13 +432,16 @@ void handleServerEvent(Message * mes)
 
 void handleGameEvent(Game * g, Message * mes)
 {
+	Player * p = mes->sndr.player;
+	char * nick = getNickname(p);
+
 	switch(mes->type)
 	{
 		case MEST_PLAYER_JOIN_GAME:
-			info("Player join to game\n");
+			info("%s join to game\n", nick);
 			break;
 		case MEST_PLAYER_LEAVE_GAME:
-			info("Player leave game\n");
+			info("%s leave game\n", nick);
 			break;
 	}
 }

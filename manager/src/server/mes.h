@@ -4,9 +4,9 @@
 #include "main.h"
 #include "game.h"
 
-#define RCVR_SERVER 0
-#define RCVR_GAME 1
-#define RCVR_PLAYER 2
+#define O_SERVER 0
+#define O_GAME 1
+#define O_PLAYER 2
 
 #define MEST_ZERO 0
 #define MEST_PLAYER_JOIN_SERVER 1
@@ -16,8 +16,16 @@
 #define MEST_COMMAND_UNKNOWN 5
 #define MEST_COMMAND_GET 6
 #define MEST_COMMAND_SET 7
+#define MEST_COMMAND_JOIN 8
+#define MEST_COMMAND_LEAVE 9
+#define MEST_COMMAND_NICK 10
 
 typedef struct message {
+	int sndr_t;
+	union sndr {
+		Game * game;
+		Player * player;
+	} sndr;
 	int rcvr_t;
 	union rcvr {
 		Game * game;

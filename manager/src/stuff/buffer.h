@@ -22,6 +22,7 @@ char * flushBuffer(struct bufferlist *);
 
 void addChar(struct bufferlist *, char);
 void addStr(struct bufferlist *, char *);
+void addnStr(struct bufferlist *, char *, int);
 int getChar(struct bufferlist *);
 
 #endif

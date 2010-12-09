@@ -9,6 +9,16 @@ void shutdownServer(void);
 
 mGame * addGame(Game *);
 void delGame(Game *);
+void freeGame(Game *);
+
+mPlayer * addNilPlayer(Player *);
+mPlayer * addPlayer(Game *, Player *);
+void delNilPlayer(Player * );
+void delPlayer(Player *);
+void freePlayer(Player *);
+
+void IntoGame(Game *, Player *);
+void IntoNil(Player *);
 
 void pollServer(void);
 void checkCommands(void);
