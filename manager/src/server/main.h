@@ -11,6 +11,8 @@
 
 #define DEFAULT_PASSKEY "msucmc"
 
+#define max(x,y) ((x) > (y) ? (x) : (y))
+
 struct programStatus {
 	int help,
 		version,

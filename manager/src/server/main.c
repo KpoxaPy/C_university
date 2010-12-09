@@ -16,7 +16,11 @@ int main (int argc, char ** argv, char ** envp)
 	initProgram(argc, argv, envp);
 
 	for(;;)
-		sleep(10);
+	{
+		pollServer();
+		checkCommands();
+		processEvents();
+	}
 
 	endWork(EXIT_SUCCESS);
 	return EXIT_SUCCESS;

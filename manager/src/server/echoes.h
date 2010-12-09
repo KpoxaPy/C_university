@@ -13,6 +13,7 @@ void printHelp(void);
 void printVersion(void);
 
 int error(char *, ...);
+int merror(char *, ...);
 int info(char *, ...);
 int debug(char *, ...);
 

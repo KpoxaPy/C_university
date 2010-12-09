@@ -9,11 +9,11 @@ struct buffer {
 	struct buffer * prev, * next;
 };
 
-struct bufferlist {
+typedef struct bufferlist {
 	struct buffer * first;
-	struct buffer * last; 
+	struct buffer * last;
 	unsigned count;
-};
+} Buffer;
 
 struct bufferlist * newBuffer();
 void clearBuffer(struct bufferlist *);

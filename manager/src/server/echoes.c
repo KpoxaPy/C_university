@@ -1,5 +1,7 @@
 #include <stdarg.h>
 #include <syslog.h>
+#include <alloca.h>
+#include <errno.h>
 #include "echoes.h"
 
 /*------------------------------------------------------------------*/
@@ -53,7 +55,42 @@ int error(char * fmt, ...)
 		ret = 0;
 	}
 	else
-	ret = vfprintf(stderr, fmt, ap);
+		ret = vfprintf(stderr, fmt, ap);
+	va_end(ap);
+
+	return ret;
+}
+
+int merror(char * fmt, ...)
+{
+	va_list ap;
+	int ret;
+
+	va_start(ap, fmt);
+	if (cfg.syslog)
+	{
+		int len = strlen(fmt);
+		char * mes = alloca(len+4);
+		if (mes != NULL)
+		{
+			strcpy(fmt, mes);
+			strcpy(": %m", mes+len-4);
+		}
+		else
+			mes = fmt;
+
+		openlog(NAME, LOG_PID | LOG_CONS, LOG_DAEMON);
+		vsyslog(LOG_ERR, mes, ap);
+		closelog();
+		ret = 0;
+	}
+	else
+	{
+		int i;
+		i = vfprintf(stderr, fmt, ap);
+		ret = fprintf(stderr, ": %s\n", strerror(errno));
+		ret += i;
+	}
 	va_end(ap);
 
 	return ret;
