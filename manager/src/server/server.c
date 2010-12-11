@@ -90,6 +90,7 @@ void shutdownServer()
 	if (srv.started == 0)
 		return;
 
+	shutdown(srv.ld, SHUT_RDWR);
 	close(srv.ld);
 	srv.ld = -1;
 	srv.started = 0;
@@ -442,6 +443,15 @@ void handleGameEvent(Game * g, Message * mes)
 			break;
 		case MEST_PLAYER_LEAVE_GAME:
 			info("%s leave game\n", nick);
+			break;
+		case MEST_COMMAND_GET:
+			info("%s sent GET command\n", nick);
+			break;
+		case MEST_COMMAND_SET:
+			info("%s sent SET %d command\n", nick, *(int *)(mes->data));
+			break;
+		case MEST_COMMAND_LEAVE:
+			info("%s sent LEAVE command\n", nick);
 			break;
 	}
 }

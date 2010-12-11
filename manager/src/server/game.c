@@ -127,9 +127,17 @@ void fetchData(Player * p)
 
 	if ((n = read(p->fd, buf, 7)) > 0)
 	{
+		char * c;
+		char * nick = getNickname(p);
+
 		buf[n] = '\0';
 
-		addStr(p->buf, buf);
+		debug("Getted string from %s with n=%d: ", nick, n);
+		for (c = buf; (c - buf) < n; c++)
+			debug("%hhu ", *c);
+		debug("\n");
+
+		addnStr(p->buf, buf, n);
 	}
 	else if (n == 0)
 	{
@@ -156,13 +164,19 @@ void checkPlayerOnCommand(Player * p)
  * or 0 if didn't */
 int checkBufferOnCommand(Player * p)
 {
+	int len = p->buf->count;
 	char * buf = flushBuffer(p->buf);
 	char * sek = buf;
-	int len = strlen(buf);
 	Message mes;
 	int * pnum;
+	char * c;
 
 	memset(&mes, 0, sizeof(mes));
+
+	debug("Analyzing string with len=%d: ", len);
+	for (c = buf; (c - buf) < len; c++)
+		debug("%hhu ", *c);
+	debug("\n");
 
 	if (len == 0)
 	{
@@ -200,7 +214,7 @@ int checkBufferOnCommand(Player * p)
 			mes.type = MEST_COMMAND_SET;
 			mes.len = 4;
 			pnum = (int *)malloc(mes.len);
-			*pnum = ntohl(*sek);
+			*pnum = ntohl(*(uint32_t *)sek);
 			mes.data = pnum;
 			sendMessage(&mes);
 			if (len > 5)
@@ -221,7 +235,7 @@ int checkBufferOnCommand(Player * p)
 			mes.type = MEST_COMMAND_JOIN;
 			mes.len = 4;
 			pnum = (int *)malloc(mes.len);
-			*pnum = ntohl(*sek);
+			*pnum = ntohl(*(uint32_t *)sek);
 			mes.data = pnum;
 			sendMessage(&mes);
 			if (len > 5)
@@ -244,15 +258,22 @@ int checkBufferOnCommand(Player * p)
 		case 5: /* nick NICKNAME\0 */
 			{
 			char * tmp = sek;
-			while (tmp != '\0' && (tmp - buf) < len)
+			debug("Attempting to get string: ");
+			while (*tmp != '\0' && (tmp - buf) < len)
+			{
+				debug("%c(%hhu) ", *tmp, *tmp);
 				tmp++;
+			}
+			debug("end:%c(%hhu) ss=%d\n", *tmp, *tmp, tmp - buf);
 
-			if (tmp != '\0')
+			if (*tmp != '\0' || (tmp - buf) == len)
 			{
 				addnStr(p->buf, buf, len);
 				free(buf);
 				return 0;
 			}
+
+			debug("String got successfully!\n");
 
 			mes.sndr_t = O_PLAYER;
 			mes.sndr.player = p;

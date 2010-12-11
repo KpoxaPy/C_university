@@ -1,32 +1,32 @@
 #ifndef _MAIN_H_
 #define _MAIN_H_
 
+#include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
-#include <arpa/inet.h>
+#include <errno.h>
+#include <termios.h>
+#include <sys/types.h>
 
-#define VERSION "0.21"
-#define NAME "Manager game server"
-
-#define DEFAULT_PASSKEY "msucmc"
-
-#define max(x,y) ((x) > (y) ? (x) : (y))
+#define VERSION "0.01"
+#define NAME "Manager game client"
 
 struct programStatus {
 	int help,
 		version,
-		debug,
-		daemon,
-		syslog;
+		debug;
 
-	int port;
-	char * passkey;
+	char * port;
+	char * host;
+	int sfd;
 
 	int argc;
 	char ** argv;
 	char ** envp;
+
+	int terminal;
+	int isInteractive;
 };
 
 extern struct programStatus cfg;
