@@ -9,7 +9,7 @@
 #include <sys/types.h>
 #include "../stuff/buffer.h"
 
-#define VERSION "0.01"
+#define VERSION "0.1"
 #define NAME "Manager game client"
 
 #define DFL_DBG_LVL 3

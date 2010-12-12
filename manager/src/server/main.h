@@ -7,7 +7,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 
-#define VERSION "0.21"
+#define VERSION "0.3"
 #define NAME "Manager game server"
 
 #define DEFAULT_PASSKEY "msucmc"
