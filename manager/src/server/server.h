@@ -20,6 +20,8 @@ void freePlayer(Player *);
 void IntoGame(Game *, Player *);
 void IntoNil(Player *);
 
+Game * findGameByGid(int);
+
 void pollServer(void);
 void checkCommands(void);
 void processEvents(void);

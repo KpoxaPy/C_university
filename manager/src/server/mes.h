@@ -19,6 +19,11 @@
 #define MEST_COMMAND_JOIN 8
 #define MEST_COMMAND_LEAVE 9
 #define MEST_COMMAND_NICK 10
+#define MEST_COMMAND_ADM 11
+#define MEST_COMMAND_GAMES 12
+#define MEST_COMMAND_PLAYERS 13
+#define MEST_COMMAND_CREATEGAME 14
+#define MEST_COMMAND_DELETEGAME 15
 
 typedef struct message {
 	int sndr_t;

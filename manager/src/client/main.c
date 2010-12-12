@@ -1,12 +1,8 @@
 #include <getopt.h>
 #include <signal.h>
-#include "main.h"
-#include "echoes.h"
-#include "lexer.h"
-#include "parser.h"
-#include "task.h"
-#include "client.h"
 #include <mcheck.h>
+#include "main.h"
+#include "client.h"
 
 struct programStatus cfg;
 
@@ -19,38 +15,31 @@ void printDebug(void);
 
 int main (int argc, char ** argv, char ** envp)
 {
-	int stParse;
-	Task * task = NULL;
-
+	int stC, stS;
 	initProgram(argc, argv, envp);
+
+	echoPromt(PROMT_DEFAULT);
 
 	for(;;)
 	{
-		echoPromt(PROMT_DEFAULT);
+		pollClient();
+		stC = checkClientOnCommand();
+		stS = checkServerOnInfo();
 
-		delTask(&task);
-		stParse = parse(&task);
+		if (stC != -1 && !cli.waitingForResponse)
+			echoPromt(PROMT_DEFAULT);
 
-		if (stParse == PS_OK)
-		{
-			defineTaskType(task);
+		if (stC == -1)
+			break;
 
-			if (task->type != TASK_UNKNOWN)
-				sendCommand(task);
-			else
-				error("Unknown command!\n");
-		}
-		else if (stParse == PS_ERROR)
+		if (stS == -1)
 		{
-			echoParserError();
-		}
-		else if (stParse == PS_EOF)
-		{
-			delTask(&task);
-			echoPromt(PROMT_LEAVING);
+			info("Server disconnected!\n");
 			break;
 		}
 	}
+
+	echoPromt(PROMT_LEAVING);
 
 	endWork(EXIT_SUCCESS);
 	return EXIT_SUCCESS;
@@ -65,27 +54,22 @@ void initProgram(int argc, char ** argv, char ** envp)
 	cfg.debug = 0;
 	cfg.version = 0;
 
-	cfg.port = NULL;
-	cfg.host = NULL;
-	cfg.sfd = -1;
+	cfg.debugLevel = DFL_DBG_LVL;
 
 	mtrace();
 
 	initOptions();
 
-	printDebug();
 	printHelp();
 	printVersion();
 
-	initParser();
-
 	initClient();
+
+	printDebug();
 }
 
 void endWork(int status)
 {
-	clearParser();
-
 	unconnect();
 
 	if (status == EXIT_SUCCESS)

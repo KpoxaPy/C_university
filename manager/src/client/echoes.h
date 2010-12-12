@@ -24,5 +24,6 @@ int error(char *, ...);
 int merror(char *, ...);
 int info(char *, ...);
 int debug(char *, ...);
+int debugl(int, char *, ...);
 
 #endif

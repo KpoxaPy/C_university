@@ -1,5 +1,6 @@
 #include <getopt.h>
 #include "getopt1.h"
+#include "client.h"
 
 void initOptions(void)
 {
@@ -8,13 +9,15 @@ void initOptions(void)
 		{"help", 0, 0, 'h'},
 		{"host", 1, 0, 'a'},
 		{"port", 1, 0, 'p'},
+		{"dlevel", 1, 0, 'l'},
 		{0, 0, 0, 0}
 	};
+	int num;
 
 	while (1)
 	{
 		opt = getopt_long(cfg.argc, cfg.argv,
-			"dhvp:a:", long_options, &longOptInd);
+			"dl:hvp:a:", long_options, &longOptInd);
 
 		if (opt == -1)
 			break;
@@ -30,15 +33,23 @@ void initOptions(void)
 				break;
 
 			case 'p':
-				cfg.port = optarg;
+				cli.portstr = optarg;
 				break;
 
 			case 'a':
-				cfg.host = optarg;
+				cli.hoststr = optarg;
 				break;
 
 			case 'v':
 				cfg.version = 1;
+				break;
+
+			case 'l':
+				num = atoi(optarg);
+				if (num < 0 || num > 9)
+					cfg.debugLevel = DFL_DBG_LVL;
+				else
+					cfg.debugLevel = num;
 				break;
 
 			default:
@@ -54,14 +65,14 @@ void initOptions(void)
 		exit(EXIT_FAILURE);
 	}
 
-	if (cfg.port == NULL)
+	if (cli.portstr == NULL)
 	{
 		error("%s: port is unset, aborted.\n", cfg.argv[0]);
 		printUsage();
 		exit(EXIT_FAILURE);
 	}
 
-	if (cfg.host == NULL)
+	if (cli.hoststr == NULL)
 	{
 		error("%s: host is unset, aborted.\n", cfg.argv[0]);
 		printUsage();

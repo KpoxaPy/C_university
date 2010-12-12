@@ -13,6 +13,8 @@ Game * newGame()
 		return NULL;
 
 	g->num = 0;
+	g->gid = 0;
+	g->nPlayers = 0;
 	g->players = NULL;
 
 	return g;
@@ -42,6 +44,7 @@ Player * newPlayer(int fd)
 	p->pid = 0;
 	p->nick = NULL;
 	p->dummynick = NULL;
+	p->adm = 0;
 
 	return p;
 }
@@ -165,6 +168,7 @@ void checkPlayerOnCommand(Player * p)
 int checkBufferOnCommand(Player * p)
 {
 	int len = p->buf->count;
+	int slen = 0;
 	char * buf = flushBuffer(p->buf);
 	char * sek = buf;
 	Message mes;
@@ -255,39 +259,137 @@ int checkBufferOnCommand(Player * p)
 			free(buf);
 			return 1;
 
-		case 5: /* nick NICKNAME\0 */
-			{
-			char * tmp = sek;
-			debug("Attempting to get string: ");
-			while (*tmp != '\0' && (tmp - buf) < len)
-			{
-				debug("%c(%hhu) ", *tmp, *tmp);
-				tmp++;
-			}
-			debug("end:%c(%hhu) ss=%d\n", *tmp, *tmp, tmp - buf);
-
-			if (*tmp != '\0' || (tmp - buf) == len)
+		case 5: /* nick len NICKNAME */
+			if (len < 5)
 			{
 				addnStr(p->buf, buf, len);
 				free(buf);
 				return 0;
 			}
 
-			debug("String got successfully!\n");
+			slen = ntohl(*(uint32_t *)sek);
+			if (len < (5 + slen))
+			{
+				addnStr(p->buf, buf, len);
+				free(buf);
+				return 0;
+			}
 
 			mes.sndr_t = O_PLAYER;
 			mes.sndr.player = p;
 			mes.rcvr_t = O_SERVER;
 			mes.type = MEST_COMMAND_NICK;
-			mes.len = tmp - sek + 1;
-			tmp = (char *)malloc(mes.len);
-			memcpy(tmp, sek, mes.len);
-			mes.data = tmp;
+			mes.len = slen + 1;
+			c = (char *)malloc(mes.len);
+			memcpy(c, sek + 4, slen);
+			c[slen] = '\0';
+			mes.data = c;
 			sendMessage(&mes);
 
+			if (len > (5 + slen))
+				addnStr(p->buf, sek+4+slen, len - 5 - slen);
 			free(buf);
 			return 1;
+
+		case 6: /* adm len PASSWORD */
+			if (len < 5)
+			{
+				addnStr(p->buf, buf, len);
+				free(buf);
+				return 0;
 			}
+
+			slen = ntohl(*(uint32_t *)sek);
+			if (len < (5 + slen))
+			{
+				addnStr(p->buf, buf, len);
+				free(buf);
+				return 0;
+			}
+
+			mes.sndr_t = O_PLAYER;
+			mes.sndr.player = p;
+			mes.rcvr_t = O_SERVER;
+			mes.type = MEST_COMMAND_ADM;
+			mes.len = slen + 1;
+			c = (char *)malloc(mes.len);
+			memcpy(c, sek + 4, slen);
+			c[slen] = '\0';
+			mes.data = c;
+			sendMessage(&mes);
+
+			if (len > (5 + slen))
+				addnStr(p->buf, sek+4+slen, len - 5 - slen);
+			free(buf);
+			return 1;
+
+		case 7: /* games */
+			if (len > 1)
+				addnStr(p->buf, sek, len - 1);
+			mes.sndr_t = O_PLAYER;
+			mes.sndr.player = p;
+			mes.rcvr_t = O_SERVER;
+			mes.type = MEST_COMMAND_GAMES;
+			mes.len = 0;
+			mes.data = NULL;
+			sendMessage(&mes);
+			free(buf);
+			return 1;
+
+		case 8: /* players N */
+			if (len < 5)
+			{
+				addnStr(p->buf, buf, len);
+				free(buf);
+				return 0;
+			}
+			mes.sndr_t = O_PLAYER;
+			mes.sndr.player = p;
+			mes.rcvr_t = O_SERVER;
+			mes.type = MEST_COMMAND_PLAYERS;
+			mes.len = 4;
+			pnum = (int *)malloc(mes.len);
+			*pnum = ntohl(*(uint32_t *)sek);
+			mes.data = pnum;
+			sendMessage(&mes);
+			if (len > 5)
+				addnStr(p->buf, sek+4, len - 5);
+			free(buf);
+			return 1;
+
+		case 9: /* creategame */
+			if (len > 1)
+				addnStr(p->buf, sek, len - 1);
+			mes.sndr_t = O_PLAYER;
+			mes.sndr.player = p;
+			mes.rcvr_t = O_SERVER;
+			mes.type = MEST_COMMAND_CREATEGAME;
+			mes.len = 0;
+			mes.data = NULL;
+			sendMessage(&mes);
+			free(buf);
+			return 1;
+
+		case 10: /* deletegame N */
+			if (len < 5)
+			{
+				addnStr(p->buf, buf, len);
+				free(buf);
+				return 0;
+			}
+			mes.sndr_t = O_PLAYER;
+			mes.sndr.player = p;
+			mes.rcvr_t = O_SERVER;
+			mes.type = MEST_COMMAND_DELETEGAME;
+			mes.len = 4;
+			pnum = (int *)malloc(mes.len);
+			*pnum = ntohl(*(uint32_t *)sek);
+			mes.data = pnum;
+			sendMessage(&mes);
+			if (len > 5)
+				addnStr(p->buf, sek+4, len - 5);
+			free(buf);
+			return 1;
 
 		default:
 			mes.sndr_t = O_PLAYER;

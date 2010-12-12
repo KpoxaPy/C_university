@@ -15,7 +15,7 @@ struct {
 	Lex * l;
 	int needLex;
 
-	const char * srcStr;
+	char * srcStr;
 	/*const char * fileStr;*/
 	lexList * list;
 } pSt = {PT_STDIN, NULL, 1, NULL/*, NULL*/, NULL};
@@ -72,6 +72,8 @@ void initParserByString(char * str)
 	cl();
 	waitLex();
 
+	if (pSt.srcStr != NULL)
+		free(pSt.srcStr);
 	pSt.srcStr = str;
 	/*pSt.fileStr = NULL;*/
 
@@ -96,7 +98,10 @@ void clearParser()
 	cl();
 	waitLex();
 
+	if (pSt.srcStr != NULL)
+		free(pSt.srcStr);
 	pSt.srcStr = NULL;
+
 	/*pSt.fileStr = NULL;*/
 
 	if (pSt.list != NULL)
@@ -214,7 +219,7 @@ int parse(Task ** task)
 		while (cur_l->type != LEX_EOL &&
 			cur_l->type != LEX_EOF);
 	}
-	
+
 	cl();
 
 	return parseStatus;

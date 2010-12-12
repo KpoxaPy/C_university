@@ -6,27 +6,25 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
-#include <termios.h>
 #include <sys/types.h>
+#include "../stuff/buffer.h"
 
 #define VERSION "0.01"
 #define NAME "Manager game client"
 
+#define DFL_DBG_LVL 3
+
+#define max(x,y) ((x) > (y) ? (x) : (y))
+
 struct programStatus {
 	int help,
 		version,
-		debug;
-
-	char * port;
-	char * host;
-	int sfd;
+		debug,
+		debugLevel;
 
 	int argc;
 	char ** argv;
 	char ** envp;
-
-	int terminal;
-	int isInteractive;
 };
 
 extern struct programStatus cfg;

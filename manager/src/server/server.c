@@ -3,6 +3,12 @@
 #include "server.h"
 #include "mes.h"
 
+#define ANSWR_OK 0
+#define ANSWR_ERROR 1
+#define ANSWR_STAT 2
+#define ANSWR_GAMES 3
+#define ANSWR_PLAYERS 4
+
 struct server {
 	int ld;
 
@@ -13,8 +19,17 @@ struct server {
 	int nPlayers;
 	int hallPlayers;
 	int nextPid;
+	int nextGid;
 	int started;
 } srv;
+
+char * answrs[] = {
+	"\01",
+	"\02",
+	"\03",
+	"\04",
+	"\05"
+};
 
 void startServer(void);
 void acceptPlayer(void);
@@ -36,6 +51,7 @@ void initServer()
 	srv.games = NULL;
 	srv.players = NULL;
 	srv.nextPid = 1;
+	srv.nextGid = 1;
 
 	startServer();
 }
@@ -187,6 +203,7 @@ mPlayer * addPlayer(Game * g, Player * p)
 	mp->player = p;
 	mp->next = g->players;
 	g->players = mp;
+	++g->nPlayers;
 	++srv.nPlayers;
 
 	return mp;
@@ -261,6 +278,8 @@ void delPlayer(Player * p)
 		else
 			p->game->players = mp->next;
 		--srv.nPlayers;
+		--p->game->nPlayers;
+		p->game = NULL;
 
 		free(mp);
 	}
@@ -302,6 +321,23 @@ void IntoNil(Player * p)
 	delPlayer(p);
 
 	addNilPlayer(p);
+}
+
+Game * findGameByGid(int gid)
+{
+	mGame * t = srv.games;
+
+	while (t != NULL)
+	{
+		if (t->game->gid == gid)
+			break;
+		t = t->next;
+	}
+
+	if (t != NULL)
+		return t->game;
+	else
+		return NULL;
 }
 
 void acceptPlayer()
@@ -409,26 +445,221 @@ void handleServerEvent(Message * mes)
 	{
 		case MEST_PLAYER_JOIN_SERVER:
 			info("%s join to server\n", nick);
+			info("Players on server/in hall: %d/%d\n", srv.nPlayers, srv.hallPlayers);
 			break;
+
 		case MEST_PLAYER_LEAVE_SERVER:
 			info("%s leave server\n", nick);
 			freePlayer(p);
+			info("Players on server/in hall: %d/%d\n", srv.nPlayers, srv.hallPlayers);
 			break;
+
 		case MEST_COMMAND_UNKNOWN:
-			info("%s send unknown command and will disconnected\n", nick);
+			info("%s send unknown command and will be disconnected\n", nick);
+			{
+				char err = 255;
+				write(p->fd, answrs[ANSWR_ERROR], 1);
+				write(p->fd, &err, 1);
+			}
 			freePlayer(p);
 			break;
+
 		case MEST_COMMAND_NICK:
 			info("%s sets nick into %s\n", nick, mes->data);
+			if (p->nick != NULL)
+				free(p->nick);
 			p->nick = mes->data;
+			write(p->fd, answrs[ANSWR_OK], 1);
 			break;
-		case MEST_COMMAND_JOIN:
-			info("%s joins %d game\n", nick, *(int *)(mes->data));
+
+		case MEST_COMMAND_ADM:
+			info("%s trying to get Adm privilegies\n", nick);
+			if (strcmp(cfg.passkey, mes->data) == 0)
+				p->adm = 1;
+
+			if (p->adm == 1)
+			{
+				info("%s grants its Adm privilegies\n", nick);
+				write(p->fd, answrs[ANSWR_OK], 1);
+			}
+			else
+			{
+				char err = 0;
+				info("Attempt was failed\n");
+				write(p->fd, answrs[ANSWR_ERROR], 1);
+				write(p->fd, &err, 1);
+			}
 			free(mes->data);
 			break;
-	}
 
-	info("Players on server/in hall: %d/%d\n", srv.nPlayers, srv.hallPlayers);
+		case MEST_COMMAND_JOIN:
+			info("%s trying to join into game #%d\n", nick, *(uint32_t *)(mes->data));
+			if (p->game == NULL)
+			{
+				Game * g = findGameByGid(*(uint32_t *)(mes->data));
+				if (g == NULL)
+				{
+					info("Not found game #%d\n", *(uint32_t *)(mes->data));
+					char err = 1;
+					write(p->fd, answrs[ANSWR_ERROR], 1);
+					write(p->fd, &err, 1);
+				}
+				else
+				{
+					Message newmes;
+					info("%s joins into game #%d\n", nick, *(uint32_t *)(mes->data));
+					IntoGame(g, p);
+					write(p->fd, answrs[ANSWR_OK], 1);
+					newmes.sndr_t = O_PLAYER;
+					newmes.sndr.player = p;
+					newmes.rcvr_t = O_GAME;
+					newmes.rcvr.game = g;
+					newmes.type = MEST_PLAYER_JOIN_GAME;
+					newmes.len = 0;
+					newmes.data = NULL;
+					sendMessage(&newmes);
+				}
+			}
+			else
+			{
+				info("%s already in game #%d\n", p->game->gid);
+				char err = 0;
+				write(p->fd, answrs[ANSWR_ERROR], 1);
+				write(p->fd, &err, 1);
+			}
+			free(mes->data);
+			break;
+
+		case MEST_COMMAND_GAMES:
+			info("%s trying to get games list\n", nick);
+			{
+				uint32_t i;
+				mGame * mg = srv.games;
+				Buffer * buf = newBuffer();
+				char * str;
+
+				i = htonl(srv.nGames);
+				addnStr(buf, &i, sizeof(i));
+				while (mg != NULL)
+				{
+					i = htonl(mg->game->gid);
+					addnStr(buf, &i, sizeof(i));
+					i = htonl(mg->game->nPlayers);
+					addnStr(buf, &i, sizeof(i));
+					mg = mg->next;
+				}
+
+				write(p->fd, answrs[ANSWR_GAMES], 1);
+				i = htonl(buf->count);
+				write(p->fd, &i, sizeof(i));
+				i = buf->count;
+				str = flushBuffer(buf);
+				write(p->fd, str, i);
+				free(str);
+
+				clearBuffer(buf);
+				free(buf);
+			}
+			break;
+
+		case MEST_COMMAND_PLAYERS:
+			info("%s trying to get players list in game #%d\n", nick, *(uint32_t *)(mes->data));
+			{
+				Game * g = findGameByGid(*(uint32_t *)(mes->data));
+				if (g == NULL)
+				{
+					char err = 0;
+					info("Not found game #%d\n", *(uint32_t *)(mes->data));
+					write(p->fd, answrs[ANSWR_ERROR], 1);
+					write(p->fd, &err, 1);
+				}
+				else
+				{
+					uint32_t i;
+					char * n;
+					mPlayer * mp = g->players;
+					Buffer * buf = newBuffer();
+					char * str;
+
+					i = htonl(g->gid);
+					addnStr(buf, &i, sizeof(i));
+					i = htonl(g->nPlayers);
+					addnStr(buf, &i, sizeof(i));
+					while (mp != NULL)
+					{
+						i = htonl(mp->player->pid);
+						addnStr(buf, &i, sizeof(i));
+						n = getNickname(mp->player);
+						i = htonl(strlen(n));
+						addnStr(buf, &i, sizeof(i));
+						addnStr(buf, n, strlen(n));
+						mp = mp->next;
+					}
+
+					write(p->fd, answrs[ANSWR_PLAYERS], 1);
+					i = htonl(buf->count);
+					write(p->fd, &i, sizeof(i));
+					i = buf->count;
+					str = flushBuffer(buf);
+					write(p->fd, str, i);
+					free(str);
+
+					clearBuffer(buf);
+					free(buf);
+				}
+			}
+			break;
+
+		case MEST_COMMAND_CREATEGAME:
+			info("%s trying to create game\n", nick);
+			if (!p->adm)
+			{
+				char err = 0;
+				info("%s not granted to create games\n", nick);
+				write(p->fd, answrs[ANSWR_ERROR], 1);
+				write(p->fd, &err, 1);
+			}
+			else
+			{
+				Game * g = newGame();
+				uint32_t i;
+				g->gid = srv.nextGid++;
+				addGame(g);
+				i = htonl(g->gid);
+				info("%s created game #%d\n", nick, g->gid);
+				write(p->fd, answrs[ANSWR_STAT], 1);
+				write(p->fd, &i, sizeof(i));
+			}
+			break;
+
+		case MEST_COMMAND_DELETEGAME:
+			info("%s trying to delete game #%d\n", nick, *(uint32_t *)(mes->data));
+			if (!p->adm)
+			{
+				char err = 0;
+				info("%s not granted to delete games\n", nick);
+				write(p->fd, answrs[ANSWR_ERROR], 1);
+				write(p->fd, &err, 1);
+			}
+			else
+			{
+				Game * g = findGameByGid(*(uint32_t *)(mes->data));
+				if (g == NULL)
+				{
+					char err = 1;
+					info("Not found game #%d\n", *(uint32_t *)(mes->data));
+					write(p->fd, answrs[ANSWR_ERROR], 1);
+					write(p->fd, &err, 1);
+				}
+				else
+				{
+					info("%s deleted game #%d\n", nick, g->gid);
+					write(p->fd, answrs[ANSWR_OK], 1);
+					freeGame(g);
+				}
+			}
+			break;
+	}
 }
 
 void handleGameEvent(Game * g, Message * mes)
@@ -440,18 +671,71 @@ void handleGameEvent(Game * g, Message * mes)
 	{
 		case MEST_PLAYER_JOIN_GAME:
 			info("%s join to game\n", nick);
+			info("Players on server/in hall: %d/%d\n", srv.nPlayers, srv.hallPlayers);
 			break;
 		case MEST_PLAYER_LEAVE_GAME:
 			info("%s leave game\n", nick);
+			info("Players on server/in hall: %d/%d\n", srv.nPlayers, srv.hallPlayers);
 			break;
 		case MEST_COMMAND_GET:
-			info("%s sent GET command\n", nick);
+			info("%s trying to get something\n", nick);
+			if (g == NULL)
+			{
+				info("%s didn't get anything\n", nick);
+				char err = 0;
+				write(p->fd, answrs[ANSWR_ERROR], 1);
+				write(p->fd, &err, 1);
+			}
+			else
+			{
+				uint32_t i = g->num;
+				i = htonl(i);
+				info("%s get %d\n", nick, g->num);
+				write(p->fd, answrs[ANSWR_STAT], 1);
+				write(p->fd, &i, sizeof(i));
+			}
 			break;
 		case MEST_COMMAND_SET:
-			info("%s sent SET %d command\n", nick, *(int *)(mes->data));
+			info("%s trying to set something into %d\n", nick, *(uint32_t *)(mes->data));
+			if (g == NULL)
+			{
+				info("%s not in game\n", nick, *(uint32_t *)(mes->data));
+				char err = 0;
+				write(p->fd, answrs[ANSWR_ERROR], 1);
+				write(p->fd, &err, 1);
+			}
+			else
+			{
+				info("%s successfully sets something into %d\n", nick, *(uint32_t *)(mes->data));
+				g->num = *(uint32_t *)(mes->data);
+				write(p->fd, answrs[ANSWR_OK], 1);
+			}
+			free(mes->data);
 			break;
 		case MEST_COMMAND_LEAVE:
-			info("%s sent LEAVE command\n", nick);
+			info("%s trying to leave us\n", nick);
+			if (g == NULL)
+			{
+				info("%s not in game\n", nick);
+				char err = 0;
+				write(p->fd, answrs[ANSWR_ERROR], 1);
+				write(p->fd, &err, 1);
+			}
+			else
+			{
+				info("%s leaves game #%d\n", nick, g->gid);
+				Message newmes;
+				IntoNil(p);
+				write(p->fd, answrs[ANSWR_OK], 1);
+				newmes.sndr_t = O_PLAYER;
+				newmes.sndr.player = p;
+				newmes.rcvr_t = O_GAME;
+				newmes.rcvr.game = g;
+				newmes.type = MEST_PLAYER_LEAVE_GAME;
+				newmes.len = 0;
+				newmes.data = NULL;
+				sendMessage(&newmes);
+			}
 			break;
 	}
 }

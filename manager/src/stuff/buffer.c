@@ -38,13 +38,15 @@ void addStr(struct bufferlist * buffer, char * str)
 		addChar(buffer, *str++);
 }
 
-void addnStr(struct bufferlist * buffer, char * str, int n)
+void addnStr(struct bufferlist * buffer, void * str, int n)
 {
+	char * c = str;
+
 	if (str == NULL || buffer == NULL)
 		return;
 
 	for (; n > 0; --n)
-		addChar(buffer, *str++);
+		addChar(buffer, *c++);
 }
 
 int getChar(struct bufferlist * buffer)

@@ -4,6 +4,7 @@
 #include "task.h"
 #include "lexer.h"
 
+#define PS_UNCONTINUED -2
 #define PS_ERROR -1
 #define PS_OK 0
 #define PS_EOL 1

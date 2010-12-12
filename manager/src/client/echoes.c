@@ -3,6 +3,7 @@
 #include <alloca.h>
 #include <errno.h>
 #include "echoes.h"
+#include "client.h"
 #include "lexer.h"
 #include "parser.h"
 
@@ -18,6 +19,7 @@ void echoPromt(int num)
 	{
 		case PROMT_DEFAULT:
 			printf(promtFormat);
+			fflush(stdout);
 			break;
 		case PROMT_EXTENDED:
 			printf(promtFormatExt);
@@ -118,6 +120,24 @@ int debug(char * fmt, ...)
 	return ret;
 }
 
+int debugl(int level, char * fmt, ...)
+{
+	va_list ap;
+	int ret;
+
+	if (!cfg.debug)
+		return 0;
+
+	if (level > cfg.debugLevel)
+		return 0;
+
+	va_start(ap, fmt);
+	ret = vfprintf(stderr, fmt, ap);
+	va_end(ap);
+
+	return ret;
+}
+
 int error(char * fmt, ...)
 {
 	va_list ap;
@@ -172,14 +192,20 @@ void printVersion()
 
 void printDebug()
 {
+	int i;
+
 	if (cfg.debug)
 	{
 		if (cfg.debug == 1)
 			debug("Used debug option\n");
 
-		debug("Server port: %d\n", cfg.port);
-
-		debug("Server host: %s\n", cfg.host);
+		debug("Requested server port: %s\n", cli.portstr);
+		debug("Requested server host: %s\n", cli.hoststr);
+		debug("Got server port: %d\n", cli.port);
+		debug("Got server host: ");
+			for (i = 0; i < 4; i++)
+				debug("%hhu%s", ((char *)&(cli.host))[i], (i != 3 ? "." : ""));
+		debug("\n");
 	}
 }
 
