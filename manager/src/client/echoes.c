@@ -15,6 +15,8 @@ void echoErrorSymbol(void);
 
 void echoPromt(int num)
 {
+	cli.infoCarret = 1;
+
 	switch (num)
 	{
 		case PROMT_DEFAULT:

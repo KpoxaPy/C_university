@@ -18,6 +18,7 @@ struct clientStatus {
 	int clientFin;
 	int serverFin;
 	int waitingForResponse;
+	int infoCarret;
 
 	Buffer * sbuf, /* server content buffer */
 		* cbuf; /* stdin content buffer */

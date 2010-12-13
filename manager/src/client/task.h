@@ -17,6 +17,7 @@
 #define TASK_PLAYERS 7
 #define TASK_CREATEGAME 8
 #define TASK_DELETEGAME 9
+#define TASK_PLAYER 10
 
 #define TASKT_CLIENT 128
 #define TASK_EXIT 0

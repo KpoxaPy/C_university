@@ -21,6 +21,7 @@ void IntoGame(Game *, Player *);
 void IntoNil(Player *);
 
 Game * findGameByGid(int);
+Player * findPlayerByPid(int);
 
 void pollServer(void);
 void checkCommands(void);

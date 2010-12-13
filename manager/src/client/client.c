@@ -9,8 +9,9 @@
 #define RESP_STAT 3
 #define RESP_GAMES 4
 #define RESP_PLAYERS 5
+#define RESP_PLAYER 6
 
-struct clientStatus cli = {NULL, NULL, 0, 0, -1, 0, 0, 0, 0, NULL, NULL};
+struct clientStatus cli = {NULL, NULL, 0, 0, -1, 0, 0, 0, 0, 1, NULL, NULL};
 
 void fetchDataFromServer(void);
 void fetchDataFromClient(void);
@@ -24,6 +25,7 @@ void sendCommand(Task *);
 void execCommand(Task *);
 
 void processResponse(int, void *, int);
+void processInfo(void *, int);
 
 void initClient()
 {
@@ -361,6 +363,52 @@ int checkServerBufferOnInfo()
 			free(buf);
 			return 1;
 
+		case 6:  /* player PLAYER */
+			if (len < 5)
+			{
+				addnStr(cli.sbuf, buf, len);
+				free(buf);
+				return 0;
+			}
+
+			slen = ntohl(*(uint32_t *)sek);
+			if (len < (5 + slen))
+			{
+				addnStr(cli.sbuf, buf, len);
+				free(buf);
+				return 0;
+			}
+			
+			processResponse(RESP_PLAYER, sek+4, slen);
+
+			if (len > (5 + slen))
+				addnStr(cli.sbuf, sek+4+slen, len - 5 - slen);
+			free(buf);
+			return 1;
+
+		case 7:  /* info MES */
+			if (len < 5)
+			{
+				addnStr(cli.sbuf, buf, len);
+				free(buf);
+				return 0;
+			}
+
+			slen = ntohl(*(uint32_t *)sek);
+			if (len < (5 + slen))
+			{
+				addnStr(cli.sbuf, buf, len);
+				free(buf);
+				return 0;
+			}
+			
+			processInfo(sek+4, slen);
+
+			if (len > (5 + slen))
+				addnStr(cli.sbuf, sek+4+slen, len - 5 - slen);
+			free(buf);
+			return 1;
+
 		default:
 			error("Recieved unknown sequence from server, abort!\n");
 			cli.clientFin = 1;
@@ -392,6 +440,8 @@ int defineTaskType(Task * t)
 		type = TASKT_SERVER | TASK_CREATEGAME;
 	else if (strcmp(t->argv[0], "deletegame") == 0)
 		type = TASKT_SERVER | TASK_DELETEGAME;
+	else if (strcmp(t->argv[0], "player") == 0)
+		type = TASKT_SERVER | TASK_PLAYER;
 	else if (strcmp(t->argv[0], "exit") == 0)
 		type = TASKT_CLIENT | TASK_EXIT;
 
@@ -460,7 +510,8 @@ void sendCommand(Task * t)
 		"\07",
 		"\010",
 		"\011",
-		"\012"
+		"\012",
+		"\013"
 	};
 
 	uint32_t i;
@@ -523,6 +574,11 @@ void sendCommand(Task * t)
 				write(cli.sfd, comms[TASK_DELETEGAME], 1);
 				write(cli.sfd, &i, sizeof(i));
 				return;
+			case TASK_PLAYER:
+				i = htonl(atoi(t->argv[1]));
+				write(cli.sfd, comms[TASK_PLAYER], 1);
+				write(cli.sfd, &i, sizeof(i));
+				return;
 		}
 
 	cli.waitingForResponse = 0;
@@ -567,6 +623,7 @@ void processResponse(int type, void * data, int len)
 				info("Game variable is %d.\n", i);
 			}
 			break;
+
 		case TASK_SET:
 			if (type == RESP_ERROR && len == 1)
 			{
@@ -578,6 +635,7 @@ void processResponse(int type, void * data, int len)
 			else if (type == RESP_OK && len == 0)
 				debugl(4, "Ok!\n");
 			break;
+
 		case TASK_JOIN:
 			if (type == RESP_ERROR && len == 1)
 			{
@@ -591,6 +649,7 @@ void processResponse(int type, void * data, int len)
 			else if (type == RESP_OK && len == 0)
 				debugl(4, "Ok!\n");
 			break;
+
 		case TASK_LEAVE:
 			if (type == RESP_ERROR && len == 1)
 			{
@@ -602,6 +661,7 @@ void processResponse(int type, void * data, int len)
 			else if (type == RESP_OK && len == 0)
 				debugl(4, "Ok!\n");
 			break;
+
 		case TASK_NICK:
 			if (type == RESP_ERROR && len == 1)
 			{
@@ -615,6 +675,7 @@ void processResponse(int type, void * data, int len)
 			else if (type == RESP_OK && len == 0)
 				debugl(4, "Ok!\n");
 			break;
+
 		case TASK_ADM:
 			if (type == RESP_ERROR && len == 1)
 			{
@@ -626,6 +687,7 @@ void processResponse(int type, void * data, int len)
 			else if (type == RESP_OK && len == 0)
 				debugl(4, "Ok!\n");
 			break;
+
 		case TASK_GAMES:
 			if (type == RESP_GAMES && len >= 4)
 			{
@@ -666,8 +728,16 @@ void processResponse(int type, void * data, int len)
 				}
 			}
 			break;
+
 		case TASK_PLAYERS:
-			if (type == RESP_PLAYERS && len >= 8)
+			if (type == RESP_ERROR && len == 1)
+			{
+				unsigned char c = *(char *)data;
+
+				if (c == 0)
+					error("Room not found!\n");
+			}
+			else if (type == RESP_PLAYERS && len >= 8)
 			{
 				int gid = ntohl(*(uint32_t *)data);
 				int num = ntohl(*(uint32_t *)(data + 4));
@@ -706,6 +776,7 @@ void processResponse(int type, void * data, int len)
 				}
 			}
 			break;
+
 		case TASK_CREATEGAME:
 			if (type == RESP_ERROR && len == 1)
 			{
@@ -721,6 +792,7 @@ void processResponse(int type, void * data, int len)
 				info("New game's GID is %d.\n", i);
 			}
 			break;
+
 		case TASK_DELETEGAME:
 			if (type == RESP_ERROR && len == 1)
 			{
@@ -734,7 +806,107 @@ void processResponse(int type, void * data, int len)
 			else if (type == RESP_OK && len == 0)
 				debugl(4, "Ok!\n");
 			break;
+
+		case TASK_PLAYER:
+			if (type == RESP_ERROR && len == 1)
+			{
+				unsigned char c = *(char *)data;
+
+				if (c == 0)
+					error("Player not found!\n");
+			}
+			else if (type == RESP_PLAYER && len >= 8)
+			{
+				int pid = ntohl(*(uint32_t *)data);
+				int gid = ntohl(*(uint32_t *)(data + 4));
+				int slen = ntohl(*(uint32_t *)(data + 8));
+				char * s = alloca(slen + 1);
+				memcpy(s, data + 12, slen);
+				s[slen] = '\0';
+
+				debugl(9, "response: len = %d\n", len);
+				debugl(9, "response: pid = %d\n", pid);
+				debugl(9, "response: gid = %d\n", gid);
+
+				info("Player #%d: %s ", pid, s);
+				if (gid == 0)
+					info("in the hall\n");
+				else
+					info("in game #%d\n", gid);
+			}
+			break;
 	}
 
 	cli.waitingForResponse = 0;
+}
+
+void processInfo(void * data, int len)
+{
+	uint32_t i, j;
+	char * str;
+
+	if (cli.infoCarret == 1)
+	{
+		info("\n");
+		cli.infoCarret = 0;
+	}
+
+	switch (*(char *)data)
+	{
+		case 1:
+			i = ntohl(*(uint32_t *)(data+1));
+			info("New player #%d on the server\n", i);
+			break;
+		case 2:
+			i = ntohl(*(uint32_t *)(data+1));
+			info("Player #%d has leaved the server\n", i);
+			break;
+		case 3:
+			i = ntohl(*(uint32_t *)(data+1));
+			j = ntohl(*(uint32_t *)(data+5));
+			str = alloca(j + 1);
+			memcpy(str, data+9, j);
+			str[j] = '\0';
+			info("Player #%d has changed his nickname to '%s'\n", i, str);
+			break;
+		case 4:
+			i = ntohl(*(uint32_t *)(data+1));
+			info("Created new game #%d\n", i);
+			break;
+		case 5:
+			i = ntohl(*(uint32_t *)(data+1));
+			info("Player #%d has leaved hall\n", i);
+			break;
+		case 6:
+			i = ntohl(*(uint32_t *)(data+1));
+			info("Player #%d has entered into hall\n", i);
+			break;
+		case 7:
+			i = ntohl(*(uint32_t *)(data+1));
+			info("Player #%d has joined into game\n", i);
+			break;
+		case 8:
+			i = ntohl(*(uint32_t *)(data+1));
+			j = ntohl(*(uint32_t *)(data+5));
+			info("Player's game stat: #%d #%d\n", i, j);
+			break;
+		case 9:
+			i = ntohl(*(uint32_t *)(data+1));
+			info("Player #%d has leaved game\n", i);
+			break;
+		case 10:
+			i = ntohl(*(uint32_t *)(data+1));
+			info("Game #%d over\n", i);
+			break;
+		case 11:
+			info("You have been kicked from game\n");
+			break;
+		case 12:
+			info("You have been kicked from server\n");
+			break;
+		case 13:
+			i = ntohl(*(uint32_t *)(data+1));
+			info("Your pid = %d\n", i);
+			break;
+	}
 }
