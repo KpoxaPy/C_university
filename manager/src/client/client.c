@@ -482,6 +482,11 @@ void sendCommand(Task * t)
 			case TASK_CREATEGAME:
 				write(cli.sfd, comms[TASK_CREATEGAME], 1);
 				return;
+			case TASK_PLAYERS:
+				i = htonl(0);
+				write(cli.sfd, comms[TASK_PLAYERS], 1);
+				write(cli.sfd, &i, sizeof(i));
+				return;
 		}
 	else if (t->argc == 2)
 		switch (t->type)
@@ -675,13 +680,20 @@ void processResponse(int type, void * data, int len)
 
 				if (num == 0)
 				{
-					info("There's no players in the game #%d.\n", gid);
+					if (gid == 0)
+						info("There's no players in the server's hall.\n");
+					else
+						info("There's no players in the game #%d.\n", gid);
 					break;
 				}
 
 				c = data + 8;
-				info("There'%s %d player%s in the game #%d.\n",
-					(num > 1 ? "re" : "s"), num, (num > 1 ? "s" : ""), gid);
+				if (gid == 0)
+					info("There'%s %d player%s in the server's hall.\n",
+						(num > 1 ? "re" : "s"), num, (num > 1 ? "s" : ""), gid);
+				else
+					info("There'%s %d player%s in the game #%d.\n",
+						(num > 1 ? "re" : "s"), num, (num > 1 ? "s" : ""), gid);
 				for (i = 0; i < num; i++)
 				{
 					int pid = ntohl(*(uint32_t *)c); c += 4;

@@ -19,10 +19,8 @@ typedef struct managedGame {
 } mGame;
 
 typedef struct player {
-	int fd;
 	int pid;
 	char * nick;
-	char * dummynick;
 	int adm;
 
 	Buffer * buf;

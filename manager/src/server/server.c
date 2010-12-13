@@ -8,6 +8,8 @@
 #define ANSWR_STAT 2
 #define ANSWR_GAMES 3
 #define ANSWR_PLAYERS 4
+#define ANSWR_PLAYER 5
+#define ANSWR_INFO 6
 
 struct server {
 	int ld;
@@ -28,7 +30,9 @@ char * answrs[] = {
 	"\02",
 	"\03",
 	"\04",
-	"\05"
+	"\05",
+	"\06",
+	"\07"
 };
 
 void startServer(void);
@@ -565,25 +569,40 @@ void handleServerEvent(Message * mes)
 		case MEST_COMMAND_PLAYERS:
 			info("%s trying to get players list in game #%d\n", nick, *(uint32_t *)(mes->data));
 			{
-				Game * g = findGameByGid(*(uint32_t *)(mes->data));
-				if (g == NULL)
+				int gid = *(uint32_t *)(mes->data);
+				Game * g = NULL;
+
+				if (gid != 0)
 				{
-					char err = 0;
-					info("Not found game #%d\n", *(uint32_t *)(mes->data));
-					write(p->fd, answrs[ANSWR_ERROR], 1);
-					write(p->fd, &err, 1);
+					g = findGameByGid(gid);
+					if (g == NULL)
+					{
+						char err = 0;
+						info("Not found game #%d\n", *(uint32_t *)(mes->data));
+						write(p->fd, answrs[ANSWR_ERROR], 1);
+						write(p->fd, &err, 1);
+					}
 				}
-				else
+
+				if (gid == 0 || g != NULL)
 				{
 					uint32_t i;
 					char * n;
-					mPlayer * mp = g->players;
+					mPlayer * mp;
 					Buffer * buf = newBuffer();
 					char * str;
 
-					i = htonl(g->gid);
+					if (gid == 0)
+						mp = srv.players;
+					else
+						mp = g->players;
+
+					i = htonl(gid);
 					addnStr(buf, &i, sizeof(i));
-					i = htonl(g->nPlayers);
+					if (gid == 0)
+						i = htonl(srv.hallPlayers);
+					else
+						i = htonl(g->nPlayers);
 					addnStr(buf, &i, sizeof(i));
 					while (mp != NULL)
 					{
