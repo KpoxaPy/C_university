@@ -10,6 +10,7 @@
 #define ANSWR_PLAYERS 4
 #define ANSWR_PLAYER 5
 #define ANSWR_INFO 6
+#define ANSWR_MARKET 7
 
 #define INFO_PLAYER_JOINS_SERVER 0
 #define INFO_PLAYER_LEAVES_SERVER 1
@@ -24,6 +25,12 @@
 #define INFO_PLAYERS_STAT_GAME 7
 #define INFO_PLAYER_LEAVES_GAME 8
 #define INFO_GAME_OVER 9
+#define INFO_START_GAME 13
+#define INFO_NOT_TURNED_PLAYERS_LEFT 14
+#define INFO_PLAYER_TURNED 15
+#define INFO_TURN_ENDED 16
+#define INFO_PLAYER_BANKRUPT 17
+#define INFO_PLAYER_WIN 18
 
 #define INFO_PLAYER_KICKED_FROM_GAME 10
 #define INFO_PLAYER_KICKED_FROM_SERVER 11
@@ -50,7 +57,8 @@ char * answrs[] = {
 	"\04",
 	"\05",
 	"\06",
-	"\07"
+	"\07",
+	"\010"
 };
 
 char * infos[] = {
@@ -66,7 +74,13 @@ char * infos[] = {
 	"\012",
 	"\013",
 	"\014",
-	"\015"
+	"\015",
+	"\016",
+	"\017",
+	"\020",
+	"\021",
+	"\022",
+	"\023"
 };
 
 void startServer(void);
@@ -323,15 +337,18 @@ void delPlayer(Player * p)
 	}
 }
 
-void freePlayer(Player * p)
+void freePlayer(Player * p, Game * g)
 {
 	if (p == NULL)
 		return;
 
-	if (p->game == NULL)
-		delNilPlayer(p);
-	else
-		delPlayer(p);
+	if (p->game == g)
+	{
+		if (p->game == NULL)
+			delNilPlayer(p);
+		else
+			delPlayer(p);
+	}
 	remPlayer(p);
 }
 
@@ -604,7 +621,7 @@ void handleServerEvent(Message * mes)
 				clearBuffer(info);
 				free(info);
 			}
-			freePlayer(sp);
+			freePlayer(sp, sp->game);
 			info("Players on server/in hall: %d/%d\n", srv.nPlayers, srv.hallPlayers);
 			break;
 
@@ -972,6 +989,33 @@ void handleServerEvent(Message * mes)
 					i = htonl(i);
 					addnStr(buf, &i, sizeof(i));
 
+					/* game characteristics */
+					if (np->game->started)
+					{
+						i = htonl(1);
+						addnStr(buf, &i, sizeof(i));
+						i = htonl(np->mat);
+						addnStr(buf, &i, sizeof(i));
+						i = htonl(np->prod);
+						addnStr(buf, &i, sizeof(i));
+						i = htonl(np->bf);
+						addnStr(buf, &i, sizeof(i));
+						i = htonl(countFactories(np));
+						addnStr(buf, &i, sizeof(i));
+						i = htonl(np->money);
+						addnStr(buf, &i, sizeof(i));
+					}
+					else
+					{
+						i = htonl(0);
+						addnStr(buf, &i, sizeof(i));
+						addnStr(buf, &i, sizeof(i));
+						addnStr(buf, &i, sizeof(i));
+						addnStr(buf, &i, sizeof(i));
+						addnStr(buf, &i, sizeof(i));
+						addnStr(buf, &i, sizeof(i));
+					}
+
 					/*  len NICK  */
 					str = getNickname(np);
 					i = htonl(strlen(str));
@@ -1019,7 +1063,6 @@ void handleGameEvent(Game * g, Message * mes)
 				Buffer * msg = newBuffer();
 				Buffer * info = newBuffer();
 				mPlayer * mp;
-				mGame * mg;
 				char * str;
 				uint32_t i;
 
@@ -1041,20 +1084,27 @@ void handleGameEvent(Game * g, Message * mes)
 				i = info->count;
 				str = flushBuffer(info);
 				/*  players in our game  */
-				for (mg = srv.games; mg != NULL; mg = mg->next)
-					if (mg->game == g)
-					{
-						for (mp = mg->game->players; mp != NULL; mp = mp->next)
-							if (mp->player != sp)
-								write(mp->player->fd, str, i);
-						break;
-					}
+				for (mp = g->players; mp != NULL; mp = mp->next)
+					if (mp->player != sp)
+						write(mp->player->fd, str, i);
 				free(str);
 
 				clearBuffer(msg);
 				free(msg);
 				clearBuffer(info);
 				free(info);
+			}
+
+			if (g->num > 0 && g->num == g->nPlayers)
+			{
+				nmes.sndr_t = O_GAME;
+				nmes.sndr.game = g;
+				nmes.rcvr_t = O_GAME;
+				nmes.rcvr.game = g;
+				nmes.type = MEST_START_GAME;
+				nmes.len = 0;
+				nmes.data = NULL;
+				sendMessage(&nmes);
 			}
 			break;
 
@@ -1065,7 +1115,6 @@ void handleGameEvent(Game * g, Message * mes)
 				Buffer * msg = newBuffer();
 				Buffer * info = newBuffer();
 				mPlayer * mp;
-				mGame * mg;
 				char * str;
 				uint32_t i;
 
@@ -1087,14 +1136,9 @@ void handleGameEvent(Game * g, Message * mes)
 				i = info->count;
 				str = flushBuffer(info);
 				/*  players in our game  */
-				for (mg = srv.games; mg != NULL; mg = mg->next)
-					if (mg->game == g)
-					{
-						for (mp = mg->game->players; mp != NULL; mp = mp->next)
-							if (mp->player != sp)
-								write(mp->player->fd, str, i);
-						break;
-					}
+				for (mp = g->players; mp != NULL; mp = mp->next)
+					if (mp->player != sp)
+						write(mp->player->fd, str, i);
 				free(str);
 
 				clearBuffer(msg);
@@ -1223,7 +1267,6 @@ void handleGameEvent(Game * g, Message * mes)
 				Buffer * msg = newBuffer();
 				Buffer * info = newBuffer();
 				mPlayer * mp;
-				mGame * mg;
 				char * str;
 				uint32_t i;
 
@@ -1247,14 +1290,9 @@ void handleGameEvent(Game * g, Message * mes)
 				i = info->count;
 				str = flushBuffer(info);
 				/*  players in our game  */
-				for (mg = srv.games; mg != NULL; mg = mg->next)
-					if (mg->game == g)
-					{
-						for (mp = mg->game->players; mp != NULL; mp = mp->next)
-							if (mp->player != sp)
-								write(mp->player->fd, str, i);
-						break;
-					}
+				for (mp = g->players; mp != NULL; mp = mp->next)
+					if (mp->player != sp)
+						write(mp->player->fd, str, i);
 				free(str);
 
 				clearBuffer(msg);
@@ -1297,6 +1335,18 @@ void handleGameEvent(Game * g, Message * mes)
 				info("%s successfully sets something into %d\n", nick, *(uint32_t *)(mes->data));
 				g->num = *(uint32_t *)(mes->data);
 				write(sp->fd, answrs[ANSWR_OK], 1);
+
+				if (g->num > 0 && g->num <= g->nPlayers)
+				{
+					nmes.sndr_t = O_GAME;
+					nmes.sndr.game = g;
+					nmes.rcvr_t = O_GAME;
+					nmes.rcvr.game = g;
+					nmes.type = MEST_START_GAME;
+					nmes.len = 0;
+					nmes.data = NULL;
+					sendMessage(&nmes);
+				}
 			}
 			free(mes->data);
 			break;
@@ -1342,6 +1392,434 @@ void handleGameEvent(Game * g, Message * mes)
 			}
 			break;
 
+		case MEST_COMMAND_START:
+			info("%s trying to start game\n", nick);
+			if (!sp->adm)
+			{
+				info("%s not granted to start games\n", nick);
+				char err = 0;
+				write(sp->fd, answrs[ANSWR_ERROR], 1);
+				write(sp->fd, &err, 1);
+			}
+			else if (g == NULL)
+			{
+				info("%s not in game\n", nick);
+				char err = 1;
+				write(sp->fd, answrs[ANSWR_ERROR], 1);
+				write(sp->fd, &err, 1);
+			}
+			else if (g->started)
+			{
+				info("Game #%d is already started\n", g->gid);
+				char err = 3;
+				write(sp->fd, answrs[ANSWR_ERROR], 1);
+				write(sp->fd, &err, 1);
+			}
+			else if (g->nPlayers == 0)
+			{
+				info("No players in game #%d\n", g->gid);
+				char err = 2;
+				write(sp->fd, answrs[ANSWR_ERROR], 1);
+				write(sp->fd, &err, 1);
+			}
+			else
+			{
+				write(sp->fd, answrs[ANSWR_OK], 1);
+				nmes.sndr_t = O_PLAYER;
+				nmes.sndr.player = sp;
+				nmes.rcvr_t = O_GAME;
+				nmes.rcvr.game = g;
+				nmes.type = MEST_START_GAME;
+				nmes.len = 0;
+				nmes.data = NULL;
+				sendMessage(&nmes);
+			}
+			break;
+
+		case MEST_COMMAND_TURN:
+			info("%s trying to turn in game\n", nick);
+			if (g == NULL)
+			{
+				info("%s not in game\n", nick);
+				char err = 0;
+				write(sp->fd, answrs[ANSWR_ERROR], 1);
+				write(sp->fd, &err, 1);
+			}
+			else if (!g->started)
+			{
+				info("Game #%d isn't started\n", g->gid);
+				char err = 2;
+				write(sp->fd, answrs[ANSWR_ERROR], 1);
+				write(sp->fd, &err, 1);
+			}
+			else if (sp->turned)
+			{
+				info("%s already turned\n", nick);
+				char err = 1;
+				write(sp->fd, answrs[ANSWR_ERROR], 1);
+				write(sp->fd, &err, 1);
+			}
+			else
+			{
+				int ntp = 0; /* not turned players */
+				mPlayer * mp;
+				write(sp->fd, answrs[ANSWR_OK], 1);
+
+				/* Semd info message about turned player */
+				{
+					Buffer * msg = newBuffer();
+					Buffer * info = newBuffer();
+					char * str;
+					uint32_t i;
+
+					/*  generating MES part  */
+					addnStr(msg, infos[INFO_PLAYER_TURNED], 1);
+					i = htonl(sp->pid);
+					addnStr(msg, &i, sizeof(i));
+
+					/*  generating INFO part  */
+					addnStr(info, answrs[ANSWR_INFO], 1);
+					i = htonl(msg->count);
+					addnStr(info, &i, sizeof(i));
+					i = msg->count;
+					str = flushBuffer(msg);
+					addnStr(info, str, i);
+					free(str);
+
+					/*  sending info message  */
+					i = info->count;
+					str = flushBuffer(info);
+					/*  players in our game  */
+					for (mp = g->players; mp != NULL; mp = mp->next)
+						if (mp->player != sp)
+							write(mp->player->fd, str, i);
+					free(str);
+
+					clearBuffer(msg);
+					free(msg);
+					clearBuffer(info);
+					free(info);
+				}
+
+				sp->turned = 1;
+
+				for (mp = g->players; mp != NULL; mp = mp->next)
+					if (!mp->player->turned)
+						++ntp;
+
+				info("Turned players: %d/%d\n", g->nPlayers, ntp);
+
+				if (ntp > 0)  /* Send info message about not turned players */
+				{
+					Buffer * msg = newBuffer();
+					Buffer * info = newBuffer();
+					char * str;
+					uint32_t i;
+
+					/*  generating MES part  */
+					addnStr(msg, infos[INFO_NOT_TURNED_PLAYERS_LEFT], 1);
+					i = htonl(g->nPlayers);
+					addnStr(msg, &i, sizeof(i));
+					i = htonl(ntp);
+					addnStr(msg, &i, sizeof(i));
+
+					/*  generating INFO part  */
+					addnStr(info, answrs[ANSWR_INFO], 1);
+					i = htonl(msg->count);
+					addnStr(info, &i, sizeof(i));
+					i = msg->count;
+					str = flushBuffer(msg);
+					addnStr(info, str, i);
+					free(str);
+
+					/*  sending info message  */
+					i = info->count;
+					str = flushBuffer(info);
+					/*  players in our game  */
+					for (mp = g->players; mp != NULL; mp = mp->next)
+						write(mp->player->fd, str, i);
+					free(str);
+
+					clearBuffer(msg);
+					free(msg);
+					clearBuffer(info);
+					free(info);
+				}
+				else
+				{
+					nmes.sndr_t = O_GAME;
+					nmes.sndr.game = g;
+					nmes.rcvr_t = O_GAME;
+					nmes.rcvr.game = g;
+					nmes.type = MEST_TURN_ENDED;
+					nmes.len = 0;
+					nmes.data = NULL;
+					sendMessage(&nmes);
+				}
+			}
+			break;
+
+		case MEST_COMMAND_PROD:
+			info("%s trying to product something in game\n", nick);
+			{
+				uint32_t n = *(uint32_t *)(mes->data);
+				if (g == NULL)
+				{
+					info("%s not in game\n", nick);
+					char err = 0;
+					write(sp->fd, answrs[ANSWR_ERROR], 1);
+					write(sp->fd, &err, 1);
+				}
+				else if (sp->turned)
+				{
+					info("%s already turned\n", nick);
+					char err = 3;
+					write(sp->fd, answrs[ANSWR_ERROR], 1);
+					write(sp->fd, &err, 1);
+				}
+				else if (!g->started)
+				{
+					info("Game #%d isn't started\n", g->gid);
+					char err = 4;
+					write(sp->fd, answrs[ANSWR_ERROR], 1);
+					write(sp->fd, &err, 1);
+				}
+				else if (n < 1 || n > sp->bf)
+				{
+					info("Nonavail product value got\n");
+					char err = 1;
+					write(sp->fd, answrs[ANSWR_ERROR], 1);
+					write(sp->fd, &err, 1);
+				}
+				else if (n*(g->prodPrice) > sp->money || n*(g->prodStuff) > sp->mat)
+				{
+					info("Not enough resources to product\n");
+					char err = 2;
+					write(sp->fd, answrs[ANSWR_ERROR], 1);
+					write(sp->fd, &err, 1);
+				}
+				else
+				{
+					write(sp->fd, answrs[ANSWR_OK], 1);
+
+					sp->prodBid.c = n;
+				}
+			}
+			free(mes->data);
+			break;
+
+		case MEST_COMMAND_MARKET:
+			info("%s trying to take market information in game\n", nick);
+			if (g == NULL)
+			{
+				info("%s not in game\n", nick);
+				char err = 0;
+				write(sp->fd, answrs[ANSWR_ERROR], 1);
+				write(sp->fd, &err, 1);
+			}
+			else if (!g->started)
+			{
+				info("Game #%d isn't started\n", g->gid);
+				char err = 1;
+				write(sp->fd, answrs[ANSWR_ERROR], 1);
+				write(sp->fd, &err, 1);
+			}
+			else
+			{
+				uint32_t i;
+				char * str;
+				Buffer * buf = newBuffer();
+
+				i = htonl(g->nPlayers);
+				addnStr(buf, &i, sizeof(i));
+
+				i = htonl(g->turn);
+				addnStr(buf, &i, sizeof(i));
+
+				i = htonl(g->state.sellC);
+				addnStr(buf, &i, sizeof(i));
+				i = htonl(g->state.sellMinP);
+				addnStr(buf, &i, sizeof(i));
+
+				i = htonl(g->state.buyC);
+				addnStr(buf, &i, sizeof(i));
+				i = htonl(g->state.buyMaxP);
+				addnStr(buf, &i, sizeof(i));
+
+				write(sp->fd, answrs[ANSWR_MARKET], 1);
+				i = buf->count;
+				str = flushBuffer(buf);
+				write(sp->fd, str, i);
+				free(str);
+
+				clearBuffer(buf);
+				free(buf);
+			}
+			break;
+
+		case MEST_COMMAND_BUILD:
+			info("%s trying to build something in game\n", nick);
+			{
+				uint32_t n = *(uint32_t *)(mes->data);
+				if (g == NULL)
+				{
+					info("%s not in game\n", nick);
+					char err = 0;
+					write(sp->fd, answrs[ANSWR_ERROR], 1);
+					write(sp->fd, &err, 1);
+				}
+				else if (!g->started)
+				{
+					info("Game #%d isn't started\n", g->gid);
+					char err = 4;
+					write(sp->fd, answrs[ANSWR_ERROR], 1);
+					write(sp->fd, &err, 1);
+				}
+				else if (sp->turned)
+				{
+					info("%s already turned\n", nick);
+					char err = 3;
+					write(sp->fd, answrs[ANSWR_ERROR], 1);
+					write(sp->fd, &err, 1);
+				}
+				else if (n < 1)
+				{
+					info("Nonavail build value got\n");
+					char err = 1;
+					write(sp->fd, answrs[ANSWR_ERROR], 1);
+					write(sp->fd, &err, 1);
+				}
+				else if ((g->bFacPrice/2) > sp->money)
+				{
+					info("Not enough resources to build\n");
+					char err = 2;
+					write(sp->fd, answrs[ANSWR_ERROR], 1);
+					write(sp->fd, &err, 1);
+				}
+				else
+				{
+					write(sp->fd, answrs[ANSWR_OK], 1);
+
+					addFactory(sp);
+				}
+			}
+			free(mes->data);
+			break;
+
+		case MEST_COMMAND_SELL:
+			info("%s trying to sell something in game\n", nick);
+			{
+				uint32_t n = *(uint32_t *)(mes->data);
+				uint32_t p = *(uint32_t *)(mes->data + 4);
+				if (g == NULL)
+				{
+					info("%s not in game\n", nick);
+					char err = 0;
+					write(sp->fd, answrs[ANSWR_ERROR], 1);
+					write(sp->fd, &err, 1);
+				}
+				else if (!g->started)
+				{
+					info("Game #%d isn't started\n", g->gid);
+					char err = 5;
+					write(sp->fd, answrs[ANSWR_ERROR], 1);
+					write(sp->fd, &err, 1);
+				}
+				else if (sp->turned)
+				{
+					info("%s already turned\n", nick);
+					char err = 4;
+					write(sp->fd, answrs[ANSWR_ERROR], 1);
+					write(sp->fd, &err, 1);
+				}
+				else if (n != 0 && p > g->state.buyMaxP)
+				{
+					info("Price that is offered by %s is too high\n", nick);
+					char err = 1;
+					write(sp->fd, answrs[ANSWR_ERROR], 1);
+					write(sp->fd, &err, 1);
+				}
+				else if (n > sp->prod)
+				{
+					info("%s don't have enough product\n", nick);
+					char err = 2;
+					write(sp->fd, answrs[ANSWR_ERROR], 1);
+					write(sp->fd, &err, 1);
+				}
+				else if (n > g->state.buyC)
+				{
+					info("%s offered too many product to sell\n", nick);
+					char err = 3;
+					write(sp->fd, answrs[ANSWR_ERROR], 1);
+					write(sp->fd, &err, 1);
+				}
+				else
+				{
+					write(sp->fd, answrs[ANSWR_OK], 1);
+					sp->sellBid.c = n;
+					sp->sellBid.p = p;
+				}
+			}
+			free(mes->data);
+			break;
+
+		case MEST_COMMAND_BUY:
+			info("%s trying to buy something in game\n", nick);
+			{
+				uint32_t n = *(uint32_t *)(mes->data);
+				uint32_t p = *(uint32_t *)(mes->data + 4);
+				if (g == NULL)
+				{
+					info("%s not in game\n", nick);
+					char err = 0;
+					write(sp->fd, answrs[ANSWR_ERROR], 1);
+					write(sp->fd, &err, 1);
+				}
+				else if (!g->started)
+				{
+					info("Game #%d isn't started\n", g->gid);
+					char err = 5;
+					write(sp->fd, answrs[ANSWR_ERROR], 1);
+					write(sp->fd, &err, 1);
+				}
+				else if (sp->turned)
+				{
+					info("%s already turned\n", nick);
+					char err = 4;
+					write(sp->fd, answrs[ANSWR_ERROR], 1);
+					write(sp->fd, &err, 1);
+				}
+				else if (n != 0 && p < g->state.sellMinP)
+				{
+					info("Price that is offered by %s is too small\n", nick);
+					char err = 1;
+					write(sp->fd, answrs[ANSWR_ERROR], 1);
+					write(sp->fd, &err, 1);
+				}
+				else if (n*p > sp->money)
+				{
+					info("%s don't have enough money\n", nick);
+					char err = 2;
+					write(sp->fd, answrs[ANSWR_ERROR], 1);
+					write(sp->fd, &err, 1);
+				}
+				else if (n > g->state.sellC)
+				{
+					info("%s offered too many material to buy\n", nick);
+					char err = 3;
+					write(sp->fd, answrs[ANSWR_ERROR], 1);
+					write(sp->fd, &err, 1);
+				}
+				else
+				{
+					write(sp->fd, answrs[ANSWR_OK], 1);
+					sp->buyBid.c = n;
+					sp->buyBid.p = p;
+				}
+			}
+			free(mes->data);
+			break;
+
 		case MEST_GAME_OVER:
 			{
 				Buffer * msg = newBuffer();
@@ -1379,6 +1857,261 @@ void handleGameEvent(Game * g, Message * mes)
 				free(info);
 			}
 			freeGame(g);
+			break;
+
+		case MEST_START_GAME:
+			info("Game #%d started with %d players\n", g->gid, g->nPlayers);
+
+			/* Send info message about game start */
+			{
+				Buffer * msg = newBuffer();
+				Buffer * info = newBuffer();
+				mPlayer * mp;
+				char * str;
+				uint32_t i;
+
+				/*  generating MES part  */
+				addnStr(msg, infos[INFO_START_GAME], 1);
+
+				/*  generating INFO part  */
+				addnStr(info, answrs[ANSWR_INFO], 1);
+				i = htonl(msg->count);
+				addnStr(info, &i, sizeof(i));
+				i = msg->count;
+				str = flushBuffer(msg);
+				addnStr(info, str, i);
+				free(str);
+
+				/*  sending info message  */
+				i = info->count;
+				str = flushBuffer(info);
+				/*  players in our game  */
+				for (mp = g->players; mp != NULL; mp = mp->next)
+					write(mp->player->fd, str, i);
+				free(str);
+
+				clearBuffer(msg);
+				free(msg);
+				clearBuffer(info);
+				free(info);
+			}
+
+			startGame(g);
+			break;
+
+		case MEST_TURN_ENDED:
+			info("New turn in game #%d\n", g->gid);
+
+			{
+				Turn * t;
+				Buffer * msgshr = newBuffer();
+				mPlayer * mp;
+				Bid * b;
+				char * strshr;
+				int lenshr;
+				uint32_t i;
+
+				t = turnGame(g);
+
+				/*  generating shared MES part  */
+				addnStr(msgshr, infos[INFO_TURN_ENDED], 1);
+				i = htonl(t->turn);
+				addnStr(msgshr, &i, sizeof(i));
+				i = htonl(countBids(t->sell) + countBids(t->buy));
+				addnStr(msgshr, &i, sizeof(i));
+				for (b = t->buy->f; b != NULL; b = b->next)
+				{
+					i = htonl(b->type);
+					addnStr(msgshr, &i, sizeof(i));
+					i = htonl(b->p->pid);
+					addnStr(msgshr, &i, sizeof(i));
+					i = htonl(b->count);
+					addnStr(msgshr, &i, sizeof(i));
+					i = htonl(b->price);
+					addnStr(msgshr, &i, sizeof(i));
+				}
+				for (b = t->sell->f; b != NULL; b = b->next)
+				{
+					i = htonl(b->type);
+					addnStr(msgshr, &i, sizeof(i));
+					i = htonl(b->p->pid);
+					addnStr(msgshr, &i, sizeof(i));
+					i = htonl(b->count);
+					addnStr(msgshr, &i, sizeof(i));
+					i = htonl(b->price);
+					addnStr(msgshr, &i, sizeof(i));
+				}
+
+				lenshr = msgshr->count;
+				strshr = flushBuffer(msgshr);
+
+				for (mp = g->players; mp != NULL; mp = mp->next)
+				{
+					Buffer * info = newBuffer();
+					Buffer * msg = newBuffer();
+					char * str;
+
+					/*  generating private MES part  */
+					addnStr(msg, strshr, lenshr);
+
+					if (countBids(t->prod) == 0)
+					{
+						i = htonl(0);
+						addnStr(msg, &i, sizeof(i));
+					}
+					else
+					{
+						for (b = t->prod->f; b != NULL && b->p != mp->player; b = b->next);
+						if (b == NULL)
+							i = htonl(0);
+						else
+							i = htonl(b->count);
+						addnStr(msg, &i, sizeof(i));
+					}
+
+					if (countBids(t->fac) == 0)
+					{
+						i = htonl(0);
+						addnStr(msg, &i, sizeof(i));
+					}
+					else
+					{
+						for (b = t->fac->f; b != NULL && b->p != mp->player; b = b->next);
+						if (b == NULL)
+							i = htonl(0);
+						else
+							i = htonl(b->count);
+						addnStr(msg, &i, sizeof(i));
+					}
+
+					/*  generating INFO part  */
+					addnStr(info, answrs[ANSWR_INFO], 1);
+					i = htonl(msg->count);
+					addnStr(info, &i, sizeof(i));
+					i = msg->count;
+					str = flushBuffer(msg);
+					addnStr(info, str, i);
+					free(str);
+
+					/*  sending info message  */
+					i = info->count;
+					str = flushBuffer(info);
+					write(mp->player->fd, str, i);
+					free(str);
+
+					clearBuffer(msg);
+					free(msg);
+					clearBuffer(info);
+					free(info);
+				}
+
+				free(strshr);
+
+				clearBuffer(msgshr);
+				free(msgshr);
+
+				remTurn(t);
+			}
+			break;
+
+		case MEST_PLAYER_BANKRUPT:
+			sp = (Player *)(mes->data);
+			info("%s had bankrupted in game #%d\n", getNickname(sp), g->gid);
+			{
+				Buffer * msg = newBuffer();
+				Buffer * info = newBuffer();
+				mPlayer * mp;
+				char * str;
+				uint32_t i;
+
+				/*  generating MES part  */
+				addnStr(msg, infos[INFO_PLAYER_BANKRUPT], 1);
+				i = htonl(sp->pid);
+				addnStr(msg, &i, sizeof(i));
+
+				/*  generating INFO part  */
+				addnStr(info, answrs[ANSWR_INFO], 1);
+				i = htonl(msg->count);
+				addnStr(info, &i, sizeof(i));
+				i = msg->count;
+				str = flushBuffer(msg);
+				addnStr(info, str, i);
+				free(str);
+
+				/*  sending info message  */
+				i = info->count;
+				str = flushBuffer(info);
+				/*  players in our game  */
+				for (mp = g->players; mp != NULL; mp = mp->next)
+					write(mp->player->fd, str, i);
+				free(str);
+
+				clearBuffer(msg);
+				free(msg);
+				clearBuffer(info);
+				free(info);
+			}
+			nmes.sndr_t = O_PLAYER;
+			nmes.sndr.player = sp;
+			nmes.rcvr_t = O_GAME;
+			nmes.rcvr.game = NULL;
+			nmes.type = MEST_PLAYER_JOINS_HALL;
+			nmes.len = 0;
+			nmes.data = NULL;
+			sendMessage(&nmes);
+			IntoNil(sp);
+			debug("%d in game#%d", getNickname(sp), (sp->game == NULL ? 0 : sp->game->gid));
+			free(mes->data);
+			break;
+
+		case MEST_PLAYER_WIN:
+			sp = (Player *)(mes->data);
+			info("%s had win in game #%d\n", getNickname(sp), g->gid);
+			{
+				Buffer * msg = newBuffer();
+				Buffer * info = newBuffer();
+				mPlayer * mp;
+				char * str;
+				uint32_t i;
+
+				/*  generating MES part  */
+				addnStr(msg, infos[INFO_PLAYER_WIN], 1);
+				i = htonl(sp->pid);
+				addnStr(msg, &i, sizeof(i));
+
+				/*  generating INFO part  */
+				addnStr(info, answrs[ANSWR_INFO], 1);
+				i = htonl(msg->count);
+				addnStr(info, &i, sizeof(i));
+				i = msg->count;
+				str = flushBuffer(msg);
+				addnStr(info, str, i);
+				free(str);
+
+				/*  sending info message  */
+				i = info->count;
+				str = flushBuffer(info);
+				/*  players in our game  */
+				for (mp = g->players; mp != NULL; mp = mp->next)
+					write(mp->player->fd, str, i);
+				free(str);
+
+				clearBuffer(msg);
+				free(msg);
+				clearBuffer(info);
+				free(info);
+			}
+			nmes.sndr_t = O_PLAYER;
+			nmes.sndr.player = sp;
+			nmes.rcvr_t = O_GAME;
+			nmes.rcvr.game = NULL;
+			nmes.type = MEST_PLAYER_JOINS_HALL;
+			nmes.len = 0;
+			nmes.data = NULL;
+			sendMessage(&nmes);
+			IntoNil(sp);
+			debug("%d in game#%d", getNickname(sp), (sp->game == NULL ? 0 : sp->game->gid));
+			free(mes->data);
 			break;
 	}
 }
@@ -1431,6 +2164,7 @@ void handlePlayerEvent(Player * p, Message * mes)
 				free(info);
 			}
 			IntoNil(p);
+			free(mes->data);
 			break;
 
 		case MEST_PLAYER_KICKED_FROM_SERVER:
@@ -1463,7 +2197,7 @@ void handlePlayerEvent(Player * p, Message * mes)
 				clearBuffer(info);
 				free(info);
 			}
-			freePlayer(p);
+			freePlayer(p, p->game);
 			break;
 
 		case MEST_PLAYER_PID:

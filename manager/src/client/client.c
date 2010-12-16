@@ -10,6 +10,7 @@
 #define RESP_GAMES 4
 #define RESP_PLAYERS 5
 #define RESP_PLAYER 6
+#define RESP_MARKET 7
 
 struct clientStatus cli = {NULL, NULL, 0, 0, -1, 0, 0, 0, 0, 1, NULL, NULL};
 
@@ -409,6 +410,22 @@ int checkServerBufferOnInfo()
 			free(buf);
 			return 1;
 
+		case 8:  /* market Players Turn sellCount:minPrice buyCount:maxPrice */
+			if (len < 25)
+			{
+				addnStr(cli.sbuf, buf, len);
+				free(buf);
+				return 0;
+			}
+
+			processResponse(RESP_MARKET, sek, 24);
+
+			if (len > 25)
+				addnStr(cli.sbuf, sek + 24, len - 25);
+			free(buf);
+			return 1;
+
+
 		default:
 			error("Recieved unknown sequence from server, abort!\n");
 			cli.clientFin = 1;
@@ -442,6 +459,20 @@ int defineTaskType(Task * t)
 		type = TASKT_SERVER | TASK_DELETEGAME;
 	else if (strcmp(t->argv[0], "player") == 0)
 		type = TASKT_SERVER | TASK_PLAYER;
+	else if (strcmp(t->argv[0], "start") == 0)
+		type = TASKT_SERVER | TASK_START;
+	else if (strcmp(t->argv[0], "turn") == 0)
+		type = TASKT_SERVER | TASK_TURN;
+	else if (strcmp(t->argv[0], "prod") == 0)
+		type = TASKT_SERVER | TASK_PROD;
+	else if (strcmp(t->argv[0], "market") == 0)
+		type = TASKT_SERVER | TASK_MARKET;
+	else if (strcmp(t->argv[0], "build") == 0)
+		type = TASKT_SERVER | TASK_BUILD;
+	else if (strcmp(t->argv[0], "buy") == 0)
+		type = TASKT_SERVER | TASK_BUY;
+	else if (strcmp(t->argv[0], "sell") == 0)
+		type = TASKT_SERVER | TASK_SELL;
 	else if (strcmp(t->argv[0], "exit") == 0)
 		type = TASKT_CLIENT | TASK_EXIT;
 
@@ -501,17 +532,24 @@ void fetchDataFromClient()
 void sendCommand(Task * t)
 {
 	static char * comms[] = {
-		"\01",
-		"\02",
-		"\03",
-		"\04",
-		"\05",
-		"\06",
-		"\07",
-		"\010",
-		"\011",
-		"\012",
-		"\013"
+		"\01", /* TASK_GET */
+		"\02", /* TASK_SET  */
+		"\03", /* TASK_JOIN  */
+		"\04", /* TASK_LEAVE  */
+		"\05", /* TASK_NICK  */
+		"\06", /* TASK_ADM  */
+		"\07", /*  TASK_GAMES */
+		"\010", /* TASK_PLAYERS  */
+		"\011", /* TASK_CREATEGAME  */
+		"\012", /* TASK_DELETEGAME  */
+		"\013", /* TASK_PLAYER  */
+		"\014", /* TASK_START  */
+		"\015", /* TASK_TURN  */
+		"\016", /* TASK_PROD  */
+		"\017", /* TASK_MARKET  */
+		"\020", /* TASK_BUILD  */
+		"\021", /* TASK_SELL  */
+		"\022", /* TASK_BUY  */
 	};
 
 	uint32_t i;
@@ -522,20 +560,22 @@ void sendCommand(Task * t)
 		switch (t->type)
 		{
 			case TASK_GET:
-				write(cli.sfd, comms[TASK_GET], 1);
-				return;
 			case TASK_LEAVE:
-				write(cli.sfd, comms[TASK_LEAVE], 1);
-				return;
 			case TASK_GAMES:
-				write(cli.sfd, comms[TASK_GAMES], 1);
-				return;
 			case TASK_CREATEGAME:
-				write(cli.sfd, comms[TASK_CREATEGAME], 1);
+			case TASK_START:
+			case TASK_TURN:
+			case TASK_MARKET:
+				write(cli.sfd, comms[t->type], 1);
 				return;
 			case TASK_PLAYERS:
-				i = htonl(0);
 				write(cli.sfd, comms[TASK_PLAYERS], 1);
+				i = htonl(0);
+				write(cli.sfd, &i, sizeof(i));
+			case TASK_PROD:
+			case TASK_BUILD:
+				write(cli.sfd, comms[t->type], 1);
+				i = htonl(1);
 				write(cli.sfd, &i, sizeof(i));
 				return;
 		}
@@ -543,40 +583,33 @@ void sendCommand(Task * t)
 		switch (t->type)
 		{
 			case TASK_SET:
-				i = htonl(atoi(t->argv[1]));
-				write(cli.sfd, comms[TASK_SET], 1);
-				write(cli.sfd, &i, sizeof(i));
-				return;
+			case TASK_PLAYERS:
 			case TASK_JOIN:
+			case TASK_DELETEGAME:
+			case TASK_PLAYER:
+			case TASK_PROD:
+			case TASK_BUILD:
+				write(cli.sfd, comms[t->type], 1);
 				i = htonl(atoi(t->argv[1]));
-				write(cli.sfd, comms[TASK_JOIN], 1);
 				write(cli.sfd, &i, sizeof(i));
 				return;
 			case TASK_NICK:
-				write(cli.sfd, comms[TASK_NICK], 1);
-				i = htonl(strlen(t->argv[1]));
-				write(cli.sfd, &i, sizeof(i));
-				write(cli.sfd, t->argv[1], strlen(t->argv[1]));
-				return;
 			case TASK_ADM:
-				write(cli.sfd, comms[TASK_ADM], 1);
+				write(cli.sfd, comms[t->type], 1);
 				i = htonl(strlen(t->argv[1]));
 				write(cli.sfd, &i, sizeof(i));
 				write(cli.sfd, t->argv[1], strlen(t->argv[1]));
 				return;
-			case TASK_PLAYERS:
+		}
+	else if (t->argc == 3)
+		switch(t->type)
+		{
+			case TASK_BUY:
+			case TASK_SELL:
+				write(cli.sfd, comms[t->type], 1);
 				i = htonl(atoi(t->argv[1]));
-				write(cli.sfd, comms[TASK_PLAYERS], 1);
 				write(cli.sfd, &i, sizeof(i));
-				return;
-			case TASK_DELETEGAME:
-				i = htonl(atoi(t->argv[1]));
-				write(cli.sfd, comms[TASK_DELETEGAME], 1);
-				write(cli.sfd, &i, sizeof(i));
-				return;
-			case TASK_PLAYER:
-				i = htonl(atoi(t->argv[1]));
-				write(cli.sfd, comms[TASK_PLAYER], 1);
+				i = htonl(atoi(t->argv[2]));
 				write(cli.sfd, &i, sizeof(i));
 				return;
 		}
@@ -819,9 +852,15 @@ void processResponse(int type, void * data, int len)
 			{
 				int pid = ntohl(*(uint32_t *)data);
 				int gid = ntohl(*(uint32_t *)(data + 4));
-				int slen = ntohl(*(uint32_t *)(data + 8));
+				int started = ntohl(*(uint32_t *)(data + 8));
+				int mat = ntohl(*(uint32_t *)(data + 12));
+				int prod = ntohl(*(uint32_t *)(data + 16));
+				int bf = ntohl(*(uint32_t *)(data + 20));
+				int cf = ntohl(*(uint32_t *)(data + 24));
+				int money = ntohl(*(uint32_t *)(data + 28));
+				int slen = ntohl(*(uint32_t *)(data + 32));
 				char * s = alloca(slen + 1);
-				memcpy(s, data + 12, slen);
+				memcpy(s, data + 36, slen);
 				s[slen] = '\0';
 
 				debugl(9, "response: len = %d\n", len);
@@ -833,7 +872,162 @@ void processResponse(int type, void * data, int len)
 					info("in the hall\n");
 				else
 					info("in game #%d\n", gid);
+				if (started)
+				{
+					info("Player have: %d money\n", money);
+					info("Player have: %d products\n", prod);
+					info("Player have: %d materials\n", mat);
+					info("Player have: %d built factories\n", bf);
+					info("Player have: %d building facs\n", cf);
+				}
 			}
+			break;
+
+		case TASK_START:
+			if (type == RESP_ERROR && len == 1)
+			{
+				unsigned char c = *(char *)data;
+
+				if (c == 0)
+					error("You don't granted to start games!\n");
+				else if (c == 1)
+					error("You aren't in the game!\n");
+				else if (c == 2)
+					error("There're no players!\n");
+				else if (c == 3)
+					error("Game is already started\n");
+			}
+			else if (type == RESP_OK && len == 0)
+				debugl(4, "Ok!\n");
+			break;
+
+		case TASK_TURN:
+			if (type == RESP_ERROR && len == 1)
+			{
+				unsigned char c = *(char *)data;
+
+				if (c == 0)
+					error("You aren't in the game!\n");
+				else if (c == 1)
+					error("You have turned already!\n");
+				else if (c == 2)
+					error("Game isn't started yet!\n");
+			}
+			else if (type == RESP_OK && len == 0)
+				debugl(4, "Ok!\n");
+			break;
+
+		case TASK_PROD:
+			if (type == RESP_ERROR && len == 1)
+			{
+				unsigned char c = *(char *)data;
+
+				if (c == 0)
+					error("You aren't in the game!\n");
+				else if (c == 1)
+					error("Wrong value of production!\n");
+				else if (c == 2)
+					error("You haven't enought money!\n");
+				else if (c == 3)
+					error("You have turned already!\n");
+				else if (c == 4)
+					error("Game isn't started yet!\n");
+			}
+			else if (type == RESP_OK && len == 0)
+				debugl(4, "Ok!\n");
+			break;
+
+		case TASK_MARKET:
+			if (type == RESP_ERROR && len == 1)
+			{
+				unsigned char c = *(char *)data;
+
+				if (c == 0)
+					error("You aren't in the game!\n");
+				else if (c == 1)
+					error("Game isn't started yet!\n");
+			}
+			else if (type == RESP_MARKET && len == 24)
+			{
+				int players = ntohl(*(uint32_t *)data);
+				int turn = ntohl(*(uint32_t *)(data + 4));
+				int sellC = ntohl(*(uint32_t *)(data + 8));
+				int sellMinP = ntohl(*(uint32_t *)(data + 12));
+				int buyC = ntohl(*(uint32_t *)(data + 16));
+				int buyMaxP = ntohl(*(uint32_t *)(data + 20));
+
+				info("Current month is %d%s\n", turn,
+					(turn == 1 ? "st" :
+					(turn == 2 ? "nd" :
+					(turn == 3 ? "rd" : "th"))));
+				info("Players in game %d\n", players);
+				info("Bank sells %d materials with minimal price %d\n", sellC, sellMinP);
+				info("Bank buys %d products with maximal price %d\n", buyC, buyMaxP);
+			}
+			break;
+
+		case TASK_BUILD:
+			if (type == RESP_ERROR && len == 1)
+			{
+				unsigned char c = *(char *)data;
+
+				if (c == 0)
+					error("You aren't in the game!\n");
+				else if (c == 1)
+					error("Wrong value of factories!\n");
+				else if (c == 2)
+					error("You haven't enought money!\n");
+				else if (c == 3)
+					error("You have turned already!\n");
+				else if (c == 4)
+					error("Game isn't started yet!\n");
+			}
+			else if (type == RESP_OK && len == 0)
+				debugl(4, "Ok!\n");
+			break;
+
+		case TASK_SELL:
+			if (type == RESP_ERROR && len == 1)
+			{
+				unsigned char c = *(char *)data;
+
+				if (c == 0)
+					error("You aren't in the game!\n");
+				else if (c == 1)
+					error("Price is too high!\n");
+				else if (c == 2)
+					error("You haven't enought goods to sell!\n");
+				else if (c == 3)
+					error("Wrong value of goods!\n");
+				else if (c == 4)
+					error("You have turned already!\n");
+				else if (c == 5)
+					error("Game isn't started yet!\n");
+			}
+			else if (type == RESP_OK && len == 0)
+				debugl(4, "Ok!\n");
+			break;
+
+		case TASK_BUY:
+			if (type == RESP_ERROR && len == 1)
+			{
+				unsigned char c = *(char *)data;
+
+				if (c == 0)
+					error("You aren't in the game!\n");
+				else if (c == 1)
+					error("Price is too low!\n");
+				else if (c == 2)
+					error("You haven't enought money!\n");
+				else if (c == 3)
+					error("Wrong value of goods!\n");
+				else if (c == 4)
+					error("You have turned already!\n");
+				else if (c == 5)
+					error("Game isn't started yet!\n");
+			}
+			else if (type == RESP_OK && len == 0)
+				debugl(4, "Ok!\n");
 			break;
 	}
 
@@ -907,6 +1101,60 @@ void processInfo(void * data, int len)
 		case 13:
 			i = ntohl(*(uint32_t *)(data+1));
 			info("Your pid = %d\n", i);
+			break;
+		case 14:
+			info("Game has been started\n");
+			break;
+		case 15:
+			i = ntohl(*(uint32_t *)(data+1));
+			j = ntohl(*(uint32_t *)(data+5));
+			info("There're players not turned yet: %d/%d\n", j, i);
+			break;
+		case 16:
+			i = ntohl(*(uint32_t *)(data+1));
+			info("Player #%d has turned\n", i);
+			break;
+		case 17:
+			info("Turn was ended\n");
+			{
+				char * sek = data + 1;
+				int turn =      ntohl(*(uint32_t *)(sek));
+				int bidsCount = ntohl(*(uint32_t *)(sek + 4));
+				int prod;
+				int fac;
+				int i;
+
+				info("Game month #%d\n", turn);
+
+				sek += 8;
+				for (i = 0; i < bidsCount; i++)
+				{
+					int type = ntohl(*(uint32_t *)(sek));;
+					int pid = ntohl(*(uint32_t *)(sek + 4));;
+					int num = ntohl(*(uint32_t *)(sek + 8));;
+					int price = ntohl(*(uint32_t *)(sek + 12));;
+					info("%s bid from player #%d: ", (type == 1 ? "BUY" : "SELL"), pid);
+					if (type == 1)
+						info("sold %d material with price %d\n", num, price);
+					else
+						info("bought %d production with price %d\n", num, price);
+					sek += 16;
+				}
+				prod = ntohl(*(uint32_t *)(sek));;
+				if (prod > 0)
+					info("Your factories producted %d good\n", prod, (prod > 1 ? "s" : ""));
+				fac = ntohl(*(uint32_t *)(sek + 4));;
+				if (fac > 0)
+					info("There is builded %d factor%s\n", fac, (fac > 1 ? "ies": "y"));
+			}
+			break;
+		case 18:
+			i = ntohl(*(uint32_t *)(data+1));
+			info("Player #%d is bankrupt!\n", i);
+			break;
+		case 19:
+			i = ntohl(*(uint32_t *)(data+1));
+			info("Player #%d is winner!\n", i);
 			break;
 	}
 }

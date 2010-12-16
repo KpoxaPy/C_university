@@ -15,7 +15,7 @@ mPlayer * addNilPlayer(Player *);
 mPlayer * addPlayer(Game *, Player *);
 void delNilPlayer(Player * );
 void delPlayer(Player *);
-void freePlayer(Player *);
+void freePlayer(Player *, Game *);
 
 void IntoGame(Game *, Player *);
 void IntoNil(Player *);

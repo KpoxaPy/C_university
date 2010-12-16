@@ -18,6 +18,13 @@
 #define TASK_CREATEGAME 8
 #define TASK_DELETEGAME 9
 #define TASK_PLAYER 10
+#define TASK_START 11
+#define TASK_TURN 12
+#define TASK_PROD 13
+#define TASK_MARKET 14
+#define TASK_BUILD 15
+#define TASK_SELL 16
+#define TASK_BUY 17
 
 #define TASKT_CLIENT 128
 #define TASK_EXIT 0
